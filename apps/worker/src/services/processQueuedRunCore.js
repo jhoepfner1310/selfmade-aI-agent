@@ -17,12 +17,25 @@ function createProcessQueuedRun({
     const maxAttempts = Number.isInteger(options.maxAttempts) ? options.maxAttempts : 1;
 
     try {
-      const currentRun = await runRepository.getRunById(runId);
+      let currentRun = await runRepository.getRunById(runId);
 
       // First attempt moves queued -> running. Retry attempts can start from running.
       if (currentRun.status === "queued") {
-        const runningRun = transitionRunStatus(currentRun, "running", {}, observeStatusTransition);
-        await runRepository.writeRun(runningRun);
+        try {
+          const runningRun = transitionRunStatus(currentRun, "running", {}, observeStatusTransition);
+          await runRepository.writeRun(runningRun);
+          currentRun = runningRun;
+        } catch (error) {
+          // Another delivery/retry may have already moved this run forward.
+          const latestRun = await runRepository.getRunById(runId);
+          if (latestRun.status === "running") {
+            currentRun = latestRun;
+          } else if (latestRun.status === "completed") {
+            return;
+          } else {
+            throw error;
+          }
+        }
       } else if (currentRun.status === "completed") {
         // Idempotent safety: a duplicate delivery should not re-process completed runs.
         return;
