@@ -64,6 +64,9 @@ function createProcessQueuedRun({
           hasReply: Boolean(reply),
           replyPreview,
           replyLength: reply.length,
+          intent: executionResult?.intent,
+          needsTool: executionResult?.needsTool,
+          action: executionResult?.action,
         }),
       );
 

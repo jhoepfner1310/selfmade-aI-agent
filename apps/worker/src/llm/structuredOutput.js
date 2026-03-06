@@ -11,6 +11,9 @@ const RESPONSE_FORMAT_INSTRUCTIONS = [
   "Gib deine finale Antwort ausschliesslich als gueltiges JSON ohne Markdown-Codeblock zurueck.",
   'Nutze exakt dieses Schema: {"reply":"string","intent":"answer_question|ask_clarifying_question|perform_task|other","needsTool":boolean,"confidence":"low|medium|high"}',
   "reply soll der eigentliche Antworttext fuer den Nutzer sein.",
+  "Setze intent auf answer_question fuer normale Wissensfragen, ask_clarifying_question bei fehlenden Angaben und perform_task bei konkreten Arbeitsauftraegen.",
+  "Setze needsTool auf true, wenn du fuer eine gute Antwort ein externes Tool, aktuelle Daten oder Systemzugriff brauchen wuerdest.",
+  "Setze confidence passend zu deiner Sicherheit auf low, medium oder high.",
 ].join(" ");
 
 function normalizeStructuredOutput(value) {

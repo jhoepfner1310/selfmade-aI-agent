@@ -1,4 +1,5 @@
 const { getLlmProvider } = require("../llm/providerFactory");
+const { deriveAgentDecision } = require("../llm/agentDecision");
 const { parseStructuredOutput } = require("../llm/structuredOutput");
 
 /**
@@ -33,6 +34,7 @@ async function executeRun(input = {}) {
 
   if (llmResult) {
     const structuredOutput = parseStructuredOutput(llmResult.text);
+    const decision = deriveAgentDecision(structuredOutput);
 
     return {
       summary: "Run processed with LLM",
@@ -40,6 +42,8 @@ async function executeRun(input = {}) {
       intent: structuredOutput.intent,
       needsTool: structuredOutput.needsTool,
       confidence: structuredOutput.confidence,
+      action: decision.action,
+      decisionReason: decision.reason,
       analysis: {
         provider: llmResult.provider,
         model: llmResult.model,
@@ -56,6 +60,8 @@ async function executeRun(input = {}) {
     intent: "other",
     needsTool: false,
     confidence: "medium",
+    action: "answer_directly",
+    decisionReason: "Mock-Fallback ohne echte Agentenentscheidung.",
     analysis: {
       wordCount: words.length,
       charCount: normalizedText.length,
