@@ -1,4 +1,5 @@
 const { getLlmProvider } = require("../llm/providerFactory");
+const { parseStructuredOutput } = require("../llm/structuredOutput");
 
 /**
  * Worker-side execution use case.
@@ -31,9 +32,14 @@ async function executeRun(input = {}) {
   const llmResult = await llmProvider.generateText(normalizedText);
 
   if (llmResult) {
+    const structuredOutput = parseStructuredOutput(llmResult.text);
+
     return {
       summary: "Run processed with LLM",
-      reply: llmResult.text,
+      reply: structuredOutput.reply,
+      intent: structuredOutput.intent,
+      needsTool: structuredOutput.needsTool,
+      confidence: structuredOutput.confidence,
       analysis: {
         provider: llmResult.provider,
         model: llmResult.model,
@@ -47,6 +53,9 @@ async function executeRun(input = {}) {
   return {
     summary: "Run processed successfully (mock fallback)",
     reply: `Processed text: "${normalizedText}"`,
+    intent: "other",
+    needsTool: false,
+    confidence: "medium",
     analysis: {
       wordCount: words.length,
       charCount: normalizedText.length,
