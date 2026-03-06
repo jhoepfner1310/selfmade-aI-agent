@@ -1,6 +1,7 @@
 const { getLlmProvider } = require("../llm/providerFactory");
 const { deriveAgentDecision } = require("../llm/agentDecision");
 const { parseStructuredOutput } = require("../llm/structuredOutput");
+const { executeTool, getDefaultToolForPlan } = require("../tools/registry");
 
 /**
  * Worker-side execution use case.
@@ -36,14 +37,33 @@ async function executeRun(input = {}) {
     const structuredOutput = parseStructuredOutput(llmResult.text);
     const decision = deriveAgentDecision(structuredOutput);
 
+    let reply = structuredOutput.reply;
+    let toolResults = [];
+
+    if (decision.action === "plan_tool_use") {
+      const toolName = getDefaultToolForPlan();
+      const toolOutcome = await executeTool(toolName, {});
+      toolResults.push({
+        tool: toolOutcome.toolName,
+        success: toolOutcome.success,
+        result: toolOutcome.result ?? toolOutcome.error,
+      });
+      if (toolOutcome.success && toolOutcome.result) {
+        reply = `${reply}\n\n(Aktuelle Systemzeit: ${toolOutcome.result})`;
+      } else if (!toolOutcome.success) {
+        reply = `${reply}\n\n(Tool-Fehler: ${toolOutcome.error})`;
+      }
+    }
+
     return {
       summary: "Run processed with LLM",
-      reply: structuredOutput.reply,
+      reply,
       intent: structuredOutput.intent,
       needsTool: structuredOutput.needsTool,
       confidence: structuredOutput.confidence,
       action: decision.action,
       decisionReason: decision.reason,
+      toolResults: toolResults.length ? toolResults : undefined,
       analysis: {
         provider: llmResult.provider,
         model: llmResult.model,
