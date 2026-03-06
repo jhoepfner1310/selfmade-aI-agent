@@ -1,4 +1,5 @@
 const OpenAI = require("openai");
+const { SYSTEM_PROMPT } = require("../systemPrompt");
 
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 let openaiClient = null;
@@ -24,6 +25,7 @@ async function generateText(promptText) {
 
   const response = await client.responses.create({
     model: OPENAI_MODEL,
+    instructions: SYSTEM_PROMPT,
     input: promptText,
   });
 

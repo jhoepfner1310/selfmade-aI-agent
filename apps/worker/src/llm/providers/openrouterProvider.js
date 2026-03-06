@@ -1,5 +1,6 @@
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL;
+const { SYSTEM_PROMPT } = require("../systemPrompt");
 
 function extractTextContent(content) {
   if (typeof content === "string") {
@@ -32,6 +33,8 @@ async function generateText(promptText) {
     return null;
   }
 
+  const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
+
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
     headers: {
@@ -43,7 +46,7 @@ async function generateText(promptText) {
       messages: [
         {
           role: "user",
-          content: promptText,
+          content: combinedPrompt,
         },
       ],
     }),
