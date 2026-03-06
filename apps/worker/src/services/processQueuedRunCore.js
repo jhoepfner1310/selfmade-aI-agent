@@ -39,6 +39,20 @@ function createProcessQueuedRun({
       }
 
       const executionResult = await executeRun(latestRun.input);
+      const reply = typeof executionResult?.reply === "string" ? executionResult.reply : "";
+      const replyPreview = reply.slice(0, 280);
+
+      console.log(
+        JSON.stringify({
+          ts: new Date().toISOString(),
+          level: "info",
+          event: "run_execution_result",
+          runId,
+          hasReply: Boolean(reply),
+          replyPreview,
+          replyLength: reply.length,
+        }),
+      );
 
       const completedRun = transitionRunStatus(
         latestRun,

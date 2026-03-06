@@ -1,4 +1,4 @@
-const OpenAI = require("openai");
+const { getLlmProvider } = require("../llm/providerFactory");
 
 /**
  * Worker-side execution use case.
@@ -15,22 +15,6 @@ class RunValidationError extends Error {
   }
 }
 
-const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
-let openaiClient = null;
-
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    return null;
-  }
-
-  if (!openaiClient) {
-    openaiClient = new OpenAI({ apiKey });
-  }
-
-  return openaiClient;
-}
-
 async function executeRun(input = {}) {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new RunValidationError("Run input must be an object");
@@ -43,22 +27,16 @@ async function executeRun(input = {}) {
   const userText = input.userText.trim();
   const normalizedText = userText || "No userText provided.";
   const words = normalizedText.split(/\s+/).filter(Boolean);
-  const client = getOpenAIClient();
+  const llmProvider = getLlmProvider();
+  const llmResult = await llmProvider.generateText(normalizedText);
 
-  if (client) {
-    const response = await client.responses.create({
-      model: OPENAI_MODEL,
-      input: normalizedText,
-    });
-
-    const reply = response.output_text?.trim() || "No response text generated.";
-
+  if (llmResult) {
     return {
       summary: "Run processed with LLM",
-      reply,
+      reply: llmResult.text,
       analysis: {
-        provider: "openai",
-        model: OPENAI_MODEL,
+        provider: llmResult.provider,
+        model: llmResult.model,
         wordCount: words.length,
         charCount: normalizedText.length,
         hasQuestion: normalizedText.includes("?"),
