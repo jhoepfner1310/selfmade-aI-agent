@@ -1,7 +1,7 @@
 const { getLlmProvider } = require("../llm/providerFactory");
 const { deriveAgentDecision } = require("../llm/agentDecision");
 const { parseStructuredOutput } = require("../llm/structuredOutput");
-const { executeTool, getDefaultToolForPlan } = require("../tools/registry");
+const { executeTool, getDefaultToolForPlan, isValidTool } = require("../tools/registry");
 
 /**
  * Worker-side execution use case.
@@ -41,7 +41,9 @@ async function executeRun(input = {}) {
     let toolResults = [];
 
     if (decision.action === "plan_tool_use") {
-      const toolName = getDefaultToolForPlan();
+      const toolName = isValidTool(structuredOutput.suggestedTool)
+        ? structuredOutput.suggestedTool
+        : getDefaultToolForPlan();
       const toolOutcome = await executeTool(toolName, {});
       toolResults.push({
         tool: toolOutcome.toolName,
@@ -49,7 +51,7 @@ async function executeRun(input = {}) {
         result: toolOutcome.result ?? toolOutcome.error,
       });
       if (toolOutcome.success && toolOutcome.result) {
-        reply = `${reply}\n\n(Aktuelle Systemzeit: ${toolOutcome.result})`;
+        reply = `${reply}\n\n(Tool-Ergebnis [${toolOutcome.toolName}]: ${toolOutcome.result})`;
       } else if (!toolOutcome.success) {
         reply = `${reply}\n\n(Tool-Fehler: ${toolOutcome.error})`;
       }
@@ -60,6 +62,7 @@ async function executeRun(input = {}) {
       reply,
       intent: structuredOutput.intent,
       needsTool: structuredOutput.needsTool,
+      suggestedTool: structuredOutput.suggestedTool ?? undefined,
       confidence: structuredOutput.confidence,
       action: decision.action,
       decisionReason: decision.reason,

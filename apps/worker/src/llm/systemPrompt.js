@@ -1,4 +1,7 @@
-const { RESPONSE_FORMAT_INSTRUCTIONS } = require("./structuredOutput");
+const { buildResponseFormatInstructions } = require("./structuredOutput");
+const { getToolListForPrompt } = require("../tools/registry");
+
+const RESPONSE_FORMAT_INSTRUCTIONS = buildResponseFormatInstructions(getToolListForPrompt());
 
 const SYSTEM_PROMPT = [
   "Du bist ein hilfreicher Assistent fuer einen selbstgebauten KI-Agenten.",

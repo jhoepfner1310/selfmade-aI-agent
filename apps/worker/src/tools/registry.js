@@ -5,6 +5,26 @@ const TOOLS = {
 };
 
 /**
+ * Returns tool names and descriptions for the LLM prompt.
+ */
+function getToolListForPrompt() {
+  return Object.entries(TOOLS)
+    .map(([name, tool]) => `${name} - ${tool.description || "Keine Beschreibung"}`)
+    .join("; ");
+}
+
+/**
+ * Returns array of valid tool names for validation.
+ */
+function getAvailableToolNames() {
+  return Object.keys(TOOLS);
+}
+
+function isValidTool(toolName) {
+  return typeof toolName === "string" && toolName.trim() && toolName in TOOLS;
+}
+
+/**
  * Execute a registered tool by name.
  * Returns { success, result, toolName } or { success: false, error }.
  */
@@ -35,8 +55,7 @@ async function executeTool(toolName, params = {}) {
 }
 
 /**
- * Get the first available tool for plan_tool_use.
- * Later we can let the LLM specify which tool it needs.
+ * Fallback tool when LLM does not suggest a valid tool.
  */
 function getDefaultToolForPlan() {
   return getCurrentTime.name;
@@ -45,4 +64,7 @@ function getDefaultToolForPlan() {
 module.exports = {
   executeTool,
   getDefaultToolForPlan,
+  getToolListForPrompt,
+  getAvailableToolNames,
+  isValidTool,
 };

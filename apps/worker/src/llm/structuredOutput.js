@@ -7,14 +7,19 @@ const INTENTS = new Set([
 
 const CONFIDENCE_LEVELS = new Set(["low", "medium", "high"]);
 
-const RESPONSE_FORMAT_INSTRUCTIONS = [
-  "Gib deine finale Antwort ausschliesslich als gueltiges JSON ohne Markdown-Codeblock zurueck.",
-  'Nutze exakt dieses Schema: {"reply":"string","intent":"answer_question|ask_clarifying_question|perform_task|other","needsTool":boolean,"confidence":"low|medium|high"}',
-  "reply soll der eigentliche Antworttext fuer den Nutzer sein.",
-  "Setze intent auf answer_question fuer normale Wissensfragen, ask_clarifying_question bei fehlenden Angaben und perform_task bei konkreten Arbeitsauftraegen.",
-  "Setze needsTool auf true, wenn du fuer eine gute Antwort ein externes Tool, aktuelle Daten oder Systemzugriff brauchen wuerdest.",
-  "Setze confidence passend zu deiner Sicherheit auf low, medium oder high.",
-].join(" ");
+function buildResponseFormatInstructions(toolListForPrompt) {
+  const toolPart = toolListForPrompt
+    ? ` Verfuegbare Tools: ${toolListForPrompt}. Wenn needsTool true ist, setze suggestedTool auf den exakten Tool-Namen aus dieser Liste; sonst null.`
+    : "";
+  return [
+    "Gib deine finale Antwort ausschliesslich als gueltiges JSON ohne Markdown-Codeblock zurueck.",
+    'Nutze exakt dieses Schema: {"reply":"string","intent":"answer_question|ask_clarifying_question|perform_task|other","needsTool":boolean,"confidence":"low|medium|high","suggestedTool":"string|null"}',
+    "reply soll der eigentliche Antworttext fuer den Nutzer sein.",
+    "Setze intent auf answer_question fuer normale Wissensfragen, ask_clarifying_question bei fehlenden Angaben und perform_task bei konkreten Arbeitsauftraegen.",
+    "Setze needsTool auf true, wenn du fuer eine gute Antwort ein externes Tool, aktuelle Daten oder Systemzugriff brauchen wuerdest.",
+    `Setze confidence passend zu deiner Sicherheit auf low, medium oder high.${toolPart}`,
+  ].join(" ");
+}
 
 function normalizeStructuredOutput(value) {
   const reply =
@@ -25,12 +30,17 @@ function normalizeStructuredOutput(value) {
   const intent = INTENTS.has(value?.intent) ? value.intent : "other";
   const needsTool = typeof value?.needsTool === "boolean" ? value.needsTool : false;
   const confidence = CONFIDENCE_LEVELS.has(value?.confidence) ? value.confidence : "medium";
+  const suggestedTool =
+    typeof value?.suggestedTool === "string" && value.suggestedTool.trim()
+      ? value.suggestedTool.trim()
+      : null;
 
   return {
     reply,
     intent,
     needsTool,
     confidence,
+    suggestedTool,
   };
 }
 
@@ -64,6 +74,6 @@ function parseStructuredOutput(text) {
 }
 
 module.exports = {
-  RESPONSE_FORMAT_INSTRUCTIONS,
+  buildResponseFormatInstructions,
   parseStructuredOutput,
 };
