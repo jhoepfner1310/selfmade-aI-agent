@@ -6,7 +6,8 @@
         "dev": "node apps/api/src/server.js",
         "dev:api": "node apps/api/src/server.js",
         "dev:worker": "node apps/worker/src/runWorker.js",
-        "test": "node --test"
+        "test": "node --test",
+        "test:agent": "node scripts/test-agent.js"
     },
     "dependencies": {
         "bullmq": "^5.70.1",
