@@ -1,6 +1,9 @@
 /**
- * Simple tool: returns current system time in ISO format.
- * Used as first demo tool when the agent signals plan_tool_use.
+ * Tool: returns current system time in ISO 8601 format.
+ * Does not use params; included as the first demo tool for plan_tool_use.
+ *
+ * @param {Object} [_params] - Ignored (tool has no parameters)
+ * @returns {Promise<{ success: boolean, result: string, toolName: string }>}
  */
 async function execute() {
   return {

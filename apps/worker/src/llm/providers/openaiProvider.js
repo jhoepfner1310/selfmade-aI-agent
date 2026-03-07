@@ -4,6 +4,10 @@ const { SYSTEM_PROMPT } = require("../systemPrompt");
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 let openaiClient = null;
 
+/**
+ * Lazily creates and returns the OpenAI client.
+ * Returns null if OPENAI_API_KEY is not set.
+ */
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
@@ -17,6 +21,13 @@ function getOpenAIClient() {
   return openaiClient;
 }
 
+/**
+ * Generates text using the OpenAI Responses API.
+ * Uses instructions (system prompt) + input (user message).
+ *
+ * @param {string} promptText - User message
+ * @returns {Promise<{ provider: string, model: string, text: string } | null>}
+ */
 async function generateText(promptText) {
   const client = getOpenAIClient();
   if (!client) {

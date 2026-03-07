@@ -8,8 +8,11 @@ const db = require("../db/postgres");
  * 2) Persist lifecycle updates via upsert semantics.
  * 3) Return run objects in the same shape expected by services/controllers.
  */
+/**
+ * Ensures the runs table exists. Called at API and worker startup.
+ * Method name kept for compatibility with bootstrap flow.
+ */
 async function ensureRunsDir() {
-  // Kept method name for compatibility with existing bootstrap flow.
   await db.query(`
     CREATE TABLE IF NOT EXISTS runs (
       id TEXT PRIMARY KEY,
@@ -26,8 +29,8 @@ async function ensureRunsDir() {
   `);
 }
 
+/** Maps a Postgres row (snake_case, Date) to API shape (camelCase, ISO strings). */
 function mapRowToRun(row) {
-  // Normalize DB row shape (snake_case + Date objects) to API shape (camelCase + ISO strings).
   return {
     id: row.id,
     status: row.status,
@@ -42,8 +45,11 @@ function mapRowToRun(row) {
   };
 }
 
+/**
+ * Upserts a run. Inserts if new, updates if id exists.
+ * Single method for both create and update.
+ */
 async function writeRun(run) {
-  // Upsert keeps repository contract simple: one method handles both "create" and "update".
   await db.query(
     `
       INSERT INTO runs (
@@ -62,7 +68,6 @@ async function writeRun(run) {
         result = EXCLUDED.result,
         error = EXCLUDED.error;
     `,
-    // Parameter order must match VALUES ($1...$10) exactly.
     [
       run.id,
       run.status,
@@ -78,21 +83,22 @@ async function writeRun(run) {
   );
 }
 
+/**
+ * Fetches a run by ID. Throws with code ENOENT if not found (for app.js 404 mapping).
+ */
 async function getRunById(id) {
   const { rows } = await db.query("SELECT * FROM runs WHERE id = $1 LIMIT 1;", [id]);
   const row = rows[0];
   if (!row) {
-    // Preserve legacy not-found signal so app-level error mapping remains unchanged.
     const notFoundError = new Error("Run not found");
     notFoundError.code = "ENOENT";
     throw notFoundError;
   }
-  // Return normalized object so service/controller layers stay storage-agnostic.
   return mapRowToRun(row);
 }
 
+/** Returns all runs, newest first. */
 async function getAllRuns() {
-  // Keep list endpoint behavior deterministic (newest runs first).
   const { rows } = await db.query("SELECT * FROM runs ORDER BY created_at DESC;");
   return rows.map(mapRowToRun);
 }

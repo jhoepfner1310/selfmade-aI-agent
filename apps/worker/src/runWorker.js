@@ -10,29 +10,28 @@ const { RUNS_QUEUE_NAME } = require("../../api/src/queue/constants");
 
 const redisUrl = process.env.REDIS_URL;
 
-// Fail fast when worker runtime config is incomplete.
 if (!redisUrl) {
   throw new Error("REDIS_URL is not set");
 }
 
-// BullMQ workers require maxRetriesPerRequest=null for blocking Redis commands.
+/**
+ * BullMQ requires maxRetriesPerRequest=null for blocking Redis commands
+ * (e.g. BLPOP used by the worker to wait for jobs).
+ */
 const workerConnection = new IORedis(redisUrl, {
   maxRetriesPerRequest: null,
 });
 
 /**
- * Worker process entrypoint.
- *
- * Responsibilities:
- * 1) Subscribe to the `runs` queue in Redis.
- * 2) Validate incoming jobs and execute run processing.
- * 3) Provide operational logs and graceful shutdown hooks.
+ * Worker process entrypoint. Subscribes to the runs queue, processes jobs
+ * via processQueuedRun, and logs lifecycle events. Handles SIGINT/SIGTERM
+ * for graceful shutdown.
  */
 async function startRunWorker() {
-  // Keep worker startup robust even if API process has not run first.
   await runRepository.ensureRunsDir();
   const metrics = createWorkerMetrics();
 
+  /** Logs a structured JSON event with metrics snapshot. */
   function logWorkerEvent(level, event, details = {}) {
     const payload = {
       ts: new Date().toISOString(),
@@ -55,7 +54,6 @@ async function startRunWorker() {
     async (job) => {
       metrics.markAttemptStarted();
 
-      // Restrict this worker to the expected job contract.
       if (job.name !== "process-run") {
         throw new Error(`Unknown job name: ${job.name}`);
       }
@@ -73,7 +71,6 @@ async function startRunWorker() {
           maxAttempts,
         });
       } catch (error) {
-        // Validation issues should fail immediately without retries.
         if (error instanceof RunValidationError) {
           throw new UnrecoverableError(error.message);
         }
@@ -135,7 +132,6 @@ async function startRunWorker() {
 
   const shutdown = async (signal) => {
     logWorkerEvent("info", "worker_shutdown_requested", { signal });
-    // Close consumer first, then release Redis connection.
     await worker.close();
     await workerConnection.quit();
     process.exit(0);

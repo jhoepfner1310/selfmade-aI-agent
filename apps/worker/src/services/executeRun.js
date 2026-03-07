@@ -4,12 +4,9 @@ const { parseStructuredOutput } = require("../llm/structuredOutput");
 const { executeTool, getDefaultToolForPlan, isValidTool } = require("../tools/registry");
 
 /**
- * Worker-side execution use case.
- *
- * This function encapsulates the actual "run execution" behavior so that
- * the orchestration flow in processQueuedRun stays focused on state updates.
- * For now this is a deterministic mock implementation and can later be
- * replaced by real LLM/tool invocation logic without changing worker flow.
+ * Custom error for input validation failures.
+ * Used to signal non-retryable errors (e.g. missing userText) so BullMQ
+ * does not waste retries on invalid payloads.
  */
 class RunValidationError extends Error {
   constructor(message) {
@@ -18,6 +15,23 @@ class RunValidationError extends Error {
   }
 }
 
+/**
+ * Core execution use case: processes a single run by calling the LLM,
+ * parsing its structured output, optionally invoking tools, and returning
+ * the final result.
+ *
+ * Flow:
+ * 1. Validate input (userText required)
+ * 2. Call LLM provider with user text
+ * 3. Parse JSON response into structured output (reply, intent, needsTool, suggestedTool, toolParams)
+ * 4. Derive agent decision (plan_tool_use, answer_directly, etc.)
+ * 5. If plan_tool_use: execute suggested tool (or fallback) with toolParams, append result to reply
+ * 6. Return result object for persistence
+ *
+ * @param {Object} input - Run input from the queue
+ * @param {string} input.userText - The user's message to process
+ * @returns {Promise<Object>} Execution result with reply, intent, action, toolResults, etc.
+ */
 async function executeRun(input = {}) {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     throw new RunValidationError("Run input must be an object");
@@ -40,6 +54,7 @@ async function executeRun(input = {}) {
     let reply = structuredOutput.reply;
     let toolResults = [];
 
+    // When the agent decides to use a tool, resolve which tool to run and with what params.
     if (decision.action === "plan_tool_use") {
       const toolName = isValidTool(structuredOutput.suggestedTool)
         ? structuredOutput.suggestedTool
@@ -81,6 +96,7 @@ async function executeRun(input = {}) {
     };
   }
 
+  // Fallback when LLM returns no result (e.g. provider unavailable).
   return {
     summary: "Run processed successfully (mock fallback)",
     reply: `Processed text: "${normalizedText}"`,

@@ -2,6 +2,13 @@ const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrout
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL;
 const { SYSTEM_PROMPT } = require("../systemPrompt");
 
+/**
+ * Extracts plain text from OpenRouter's message content.
+ * Handles string, array of parts (e.g. { type: "text", text: "..." }), or empty.
+ *
+ * @param {string|Array} content - Message content from API response
+ * @returns {string} Extracted text
+ */
 function extractTextContent(content) {
   if (typeof content === "string") {
     return content.trim();
@@ -27,12 +34,20 @@ function extractTextContent(content) {
   return "";
 }
 
+/**
+ * Generates text using OpenRouter's chat completions API.
+ * Embeds system prompt in user message (some models don't support separate system role).
+ *
+ * @param {string} promptText - User message
+ * @returns {Promise<{ provider: string, model: string, text: string } | null>}
+ */
 async function generateText(promptText) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || !OPENROUTER_MODEL) {
     return null;
   }
 
+  // Combine system + user into single user message for models without developer instructions.
   const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
 
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {

@@ -1,3 +1,10 @@
+/**
+ * Derives the agent's next action from the LLM's structured output.
+ * Priority order: needsTool (plan_tool_use) > ask_clarifying_question > perform_task > answer_directly.
+ *
+ * @param {Object} structuredOutput - Parsed output from parseStructuredOutput
+ * @returns {{ action: string, reason: string }} Action and human-readable reason
+ */
 function deriveAgentDecision(structuredOutput) {
   if (structuredOutput?.needsTool === true) {
     return {

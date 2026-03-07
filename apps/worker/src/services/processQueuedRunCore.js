@@ -1,8 +1,16 @@
 /**
- * Factory for the worker run-processing use case.
+ * Factory that creates the processQueuedRun function with injected dependencies.
+ * This pattern allows unit tests to mock sleep, runRepository, executeRun, etc.
+ * without needing a real Postgres/Redis setup.
  *
- * Keeping this logic dependency-injected makes it testable without requiring
- * a real Postgres/Redis environment.
+ * @param {Object} deps - Injected dependencies
+ * @param {Function} deps.sleep - Async delay (ms)
+ * @param {Function} deps.transitionRunStatus - State machine transition
+ * @param {Function} deps.observeStatusTransition - Observer for status changes
+ * @param {Object} deps.runRepository - getRunById, writeRun
+ * @param {Function} deps.executeRun - Core execution logic
+ * @param {typeof RunValidationError} deps.RunValidationError - Validation error class
+ * @returns {Function} processQueuedRun(runId, options)
  */
 function createProcessQueuedRun({
   sleep,
@@ -12,6 +20,16 @@ function createProcessQueuedRun({
   executeRun,
   RunValidationError,
 }) {
+  /**
+   * Processes a single queued run: transitions to running, executes via executeRun,
+   * persists result or failure. Handles retries and idempotency (e.g. duplicate
+   * deliveries when run is already completed).
+   *
+   * @param {string} runId - ID of the run to process
+   * @param {Object} options - BullMQ job metadata
+   * @param {number} options.attemptsMade - Current attempt count
+   * @param {number} options.maxAttempts - Max retries before giving up
+   */
   return async function processQueuedRun(runId, options = {}) {
     const attemptsMade = Number.isInteger(options.attemptsMade) ? options.attemptsMade : 0;
     const maxAttempts = Number.isInteger(options.maxAttempts) ? options.maxAttempts : 1;
@@ -19,14 +37,14 @@ function createProcessQueuedRun({
     try {
       let currentRun = await runRepository.getRunById(runId);
 
-      // First attempt moves queued -> running. Retry attempts can start from running.
+      // First attempt: transition queued -> running. Retries may find run already running.
       if (currentRun.status === "queued") {
         try {
           const runningRun = transitionRunStatus(currentRun, "running", {}, observeStatusTransition);
           await runRepository.writeRun(runningRun);
           currentRun = runningRun;
         } catch (error) {
-          // Another delivery/retry may have already moved this run forward.
+          // Race condition: another worker/retry may have already transitioned this run.
           const latestRun = await runRepository.getRunById(runId);
           if (latestRun.status === "running") {
             currentRun = latestRun;
@@ -43,7 +61,7 @@ function createProcessQueuedRun({
         throw new Error(`Run ${runId} is in invalid status for processing: ${currentRun.status}`);
       }
 
-      // Simulate background processing latency.
+      // Simulated processing delay (e.g. for rate limiting or UX).
       await sleep(2000);
 
       const latestRun = await runRepository.getRunById(runId);
@@ -52,6 +70,7 @@ function createProcessQueuedRun({
       }
 
       const executionResult = await executeRun(latestRun.input);
+      // Log result for observability (structured JSON for log aggregation).
       const reply = typeof executionResult?.reply === "string" ? executionResult.reply : "";
       const replyPreview = reply.slice(0, 280);
 
@@ -86,7 +105,7 @@ function createProcessQueuedRun({
       const isLastAttempt = attemptsMade + 1 >= maxAttempts;
       const shouldPersistFailure = error instanceof RunValidationError || isLastAttempt;
 
-      // Persist "failed" only for non-retryable errors or on final retry attempt.
+      // Only persist "failed" when: validation error (no retry) or final retry exhausted.
       if (shouldPersistFailure) {
         try {
           const latestRun = await runRepository.getRunById(runId);

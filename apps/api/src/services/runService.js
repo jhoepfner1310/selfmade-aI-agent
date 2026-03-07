@@ -4,12 +4,10 @@ const { observeStatusTransition } = require("../observers/runObserver");
 const runRepository = require("../repositories/runRepository");
 
 /**
- * Service layer for run lifecycle orchestration.
+ * Transitions a run to "queued" and persists. Used internally by createRun.
  *
- * Responsibilities:
- * 1) Build new run objects and persist lifecycle updates.
- * 2) Enqueue runs for asynchronous worker processing.
- * 3) Keep controllers free from queue/storage details.
+ * @param {Object} run - Run with status "created"
+ * @returns {Promise<Object>} Run with status "queued", queuedAt set
  */
 async function enqueueRun(run) {
   const queuedRun = transitionRunStatus(run, "queued", {}, observeStatusTransition);
@@ -17,8 +15,14 @@ async function enqueueRun(run) {
   return queuedRun;
 }
 
+/**
+ * Creates a new run: persists with status "created", transitions to "queued",
+ * and publishes a job to the BullMQ runs queue. Worker picks it up asynchronously.
+ *
+ * @param {Object} input - { userText?: string, ... } - stored as run.input
+ * @returns {Promise<Object>} The queued run
+ */
 async function createRun(input) {
-  // "created" is the initial persistence state before entering the queue.
   const createdRun = {
     id: randomUUID(),
     status: "created",
@@ -29,7 +33,6 @@ async function createRun(input) {
 
   const queuedRun = await enqueueRun(createdRun);
   const { runsQueue } = require("../queue/runQueue");
-  // Publish run id to Redis so a dedicated worker can process it asynchronously.
   await runsQueue.add(
     "process-run",
     { runId: queuedRun.id },
@@ -50,6 +53,7 @@ async function listRuns() {
   return runRepository.getAllRuns();
 }
 
+/** Returns a single run by ID. Throws ENOENT if not found. */
 async function getRun(runId) {
   return runRepository.getRunById(runId);
 }

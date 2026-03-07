@@ -12,8 +12,11 @@ const runsController = require("../controllers/runsController");
  * Note: This module intentionally stays thin and keeps business logic
  * inside controllers/services.
  */
+/**
+ * Dispatches HTTP requests to the appropriate controller based on method and path.
+ * Uses URL constructor to parse pathname (req.url can be relative).
+ */
 async function handleRunRoutes(req, res) {
-  // req.url can be relative (e.g. "/runs?limit=10"), so we provide a base URL.
   const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = requestUrl.pathname;
   const method = req.method;

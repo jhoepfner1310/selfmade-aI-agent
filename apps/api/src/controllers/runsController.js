@@ -13,6 +13,7 @@ const { readJsonBody } = require("../utils/readJsonBody");
  * Error mapping is centralized in app.js, so controller methods keep
  * their happy path straightforward.
  */
+/** Health check endpoint for load balancers and monitoring. */
 async function health(req, res) {
   return sendJson(res, 200, {
     status: "ok",
@@ -20,20 +21,27 @@ async function health(req, res) {
   });
 }
 
+/**
+ * Creates a new run from request body, persists it, and enqueues for worker processing.
+ * Expects { userText: string } in body. Returns the queued run (201).
+ */
 async function createRun(req, res) {
-  // Parse request stream into JSON once; throws SyntaxError on malformed payloads.
   const input = await readJsonBody(req);
   const queuedRun = await runService.createRun(input);
   return sendJson(res, 201, queuedRun);
 }
 
+/** Returns all runs from the repository, newest first. */
 async function listRuns(req, res) {
   const runs = await runService.listRuns();
   return sendJson(res, 200, runs);
 }
 
+/**
+ * Returns a single run by ID. Path param: /runs/:id
+ * Returns 400 if runId is empty, 404 if not found.
+ */
 async function getRunById(req, res, runId) {
-  // Defensively reject missing path parameter before calling the service.
   if (!runId) {
     return sendJson(res, 400, { error: "Run id is required" });
   }

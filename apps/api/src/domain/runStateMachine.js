@@ -1,3 +1,6 @@
+/**
+ * Valid state transitions. Keys are current status, values are allowed next statuses.
+ */
 const ALLOWED_STATUS_TRANSITIONS = {
   created: ["queued"],
   queued: ["running"],
@@ -6,6 +9,9 @@ const ALLOWED_STATUS_TRANSITIONS = {
   failed: [],
 };
 
+/**
+ * Maps status to the timestamp field to set when transitioning (e.g. running -> runningAt).
+ */
 const STATUS_TIMESTAMP_FIELDS = {
   queued: "queuedAt",
   running: "runningAt",
@@ -14,12 +20,15 @@ const STATUS_TIMESTAMP_FIELDS = {
 };
 
 /**
- * Transition a run to the next status with validation.
+ * Transitions a run to the next status. Validates against ALLOWED_STATUS_TRANSITIONS,
+ * sets the appropriate timestamp, merges extraFields (e.g. result, error), and
+ * optionally notifies an observer.
  *
- * Guarantees:
- * 1) Illegal transitions throw immediately.
- * 2) Status-specific timestamps are written automatically.
- * 3) Optional transition observer is notified after state change is built.
+ * @param {Object} run - Current run object
+ * @param {string} nextStatus - Target status
+ * @param {Object} [extraFields={}] - Additional fields to merge (e.g. { result }, { error })
+ * @param {Function} [observeStatusTransition] - Callback({ runId, from, to })
+ * @returns {Object} New run object with updated status and fields
  */
 function transitionRunStatus(run, nextStatus, extraFields = {}, observeStatusTransition) {
   const allowedNextStatuses = ALLOWED_STATUS_TRANSITIONS[run.status] || [];

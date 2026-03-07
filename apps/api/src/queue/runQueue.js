@@ -9,10 +9,8 @@ if (!redisUrl) {
 }
 
 /**
- * Shared Redis connection + BullMQ queue for run jobs.
- *
- * This module only defines queue infrastructure.
- * Job publishing/processing will be wired in follow-up steps.
+ * Shared Redis connection and BullMQ queue for run jobs.
+ * API publishes jobs via runsQueue.add(); worker subscribes via BullMQ Worker.
  */
 const redisConnection = new IORedis(redisUrl);
 
@@ -20,6 +18,7 @@ const runsQueue = new Queue(RUNS_QUEUE_NAME, {
   connection: redisConnection,
 });
 
+/** Closes the queue and Redis connection. For tests/shutdown. */
 async function closeRunsQueue() {
   await runsQueue.close();
   await redisConnection.quit();

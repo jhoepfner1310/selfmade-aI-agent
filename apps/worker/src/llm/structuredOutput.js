@@ -1,3 +1,7 @@
+/**
+ * Valid intent values the LLM may return.
+ * Used to validate and normalize the parsed structured output.
+ */
 const INTENTS = new Set([
   "answer_question",
   "ask_clarifying_question",
@@ -5,8 +9,19 @@ const INTENTS = new Set([
   "other",
 ]);
 
+/**
+ * Valid confidence levels for the LLM's self-assessment.
+ */
 const CONFIDENCE_LEVELS = new Set(["low", "medium", "high"]);
 
+/**
+ * Builds the JSON schema and format instructions for the LLM.
+ * Injects the available tool list so the LLM knows which tools exist and can
+ * suggest one via suggestedTool + toolParams when needsTool is true.
+ *
+ * @param {string} [toolListForPrompt] - Semicolon-separated "name - description" list
+ * @returns {string} Instructions to append to the system prompt
+ */
 function buildResponseFormatInstructions(toolListForPrompt) {
   const toolPart = toolListForPrompt
     ? ` Verfuegbare Tools: ${toolListForPrompt}. Wenn needsTool true ist, setze suggestedTool auf den exakten Tool-Namen aus dieser Liste; sonst null. Wenn ein Tool Parameter braucht (z.B. Ort fuer Wetter), setze toolParams als Objekt (z.B. {"city":"Berlin"}); sonst null oder {}.`
@@ -22,6 +37,14 @@ function buildResponseFormatInstructions(toolListForPrompt) {
   ].join(" ");
 }
 
+/**
+ * Normalizes raw parsed JSON into a consistent structured output shape.
+ * Validates intent, confidence, suggestedTool; sanitizes toolParams.
+ * Provides safe defaults for missing or invalid fields.
+ *
+ * @param {Object} value - Raw parsed object from LLM response
+ * @returns {Object} Normalized { reply, intent, needsTool, confidence, suggestedTool, toolParams }
+ */
 function normalizeStructuredOutput(value) {
   const reply =
     typeof value?.reply === "string" && value.reply.trim()
@@ -48,6 +71,14 @@ function normalizeStructuredOutput(value) {
   };
 }
 
+/**
+ * Sanitizes toolParams from the LLM to prevent injection or unexpected types.
+ * Only allows plain string keys and primitive values (string, number, boolean).
+ * Rejects nested objects, arrays, and functions.
+ *
+ * @param {*} value - Raw toolParams from LLM
+ * @returns {Object} Safe key-value object for tool execution
+ */
 function sanitizeToolParams(value) {
   if (value === null || value === undefined) return {};
   if (typeof value !== "object" || Array.isArray(value)) return {};
@@ -60,6 +91,13 @@ function sanitizeToolParams(value) {
   return out;
 }
 
+/**
+ * Extracts a JSON object from LLM response text.
+ * Handles markdown code blocks (```json ... ```) and strips surrounding noise.
+ *
+ * @param {string} text - Raw LLM response
+ * @returns {string|null} JSON string or null if no object found
+ */
 function extractJsonObject(text) {
   if (typeof text !== "string") {
     return null;
@@ -76,6 +114,14 @@ function extractJsonObject(text) {
   return trimmed.slice(firstBrace, lastBrace + 1);
 }
 
+/**
+ * Parses LLM response text into normalized structured output.
+ * Extracts JSON, parses it, and normalizes. Falls back to using raw text as reply
+ * if JSON extraction or parsing fails.
+ *
+ * @param {string} text - Raw LLM response
+ * @returns {Object} Normalized { reply, intent, needsTool, confidence, suggestedTool, toolParams }
+ */
 function parseStructuredOutput(text) {
   const jsonText = extractJsonObject(text);
   if (!jsonText) {

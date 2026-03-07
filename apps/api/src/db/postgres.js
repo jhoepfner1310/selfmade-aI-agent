@@ -24,12 +24,18 @@ const pool = new Pool({
   connectionString,
 });
 
-// Execute a parameterized SQL query through the shared pool.
+/**
+ * Executes a parameterized query. Use $1, $2, etc. for params to prevent SQL injection.
+ *
+ * @param {string} text - SQL query with $1, $2 placeholders
+ * @param {Array} [params=[]] - Parameter values
+ * @returns {Promise<Object>} pg result with rows, rowCount, etc.
+ */
 async function query(text, params = []) {
   return pool.query(text, params);
 }
 
-// Gracefully close all pooled connections (useful for tests/shutdown).
+/** Closes the pool. Call during graceful shutdown or in tests. */
 async function closePool() {
   await pool.end();
 }

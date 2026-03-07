@@ -8,10 +8,14 @@ const { createProcessQueuedRun } = require("./processQueuedRunCore");
 /**
  * Worker-side run processing use case.
  *
- * Responsibilities:
- * 1) Move queued runs through running/completed or failed states.
- * 2) Persist lifecycle changes to the shared run repository.
- * 3) Keep worker entrypoint thin by isolating processing logic here.
+ * Wires the processQueuedRunCore factory with real implementations:
+ * - sleep: delay between state transitions
+ * - transitionRunStatus: run state machine (queued -> running -> completed/failed)
+ * - runRepository: Postgres persistence
+ * - executeRun: LLM + tool invocation logic
+ *
+ * The worker entrypoint (runWorker.js) subscribes to the BullMQ queue and
+ * calls this function for each job.
  */
 const processQueuedRun = createProcessQueuedRun({
   sleep,

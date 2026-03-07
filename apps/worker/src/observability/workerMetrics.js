@@ -1,3 +1,9 @@
+/**
+ * Creates a metrics object for tracking worker lifecycle events.
+ * Used in structured logs (e.g. run_execution_result) for observability.
+ *
+ * @returns {Object} Metrics with markAttemptStarted, markCompletedJob, markRetriedAttempt, markFailedJob, snapshot
+ */
 function createWorkerMetrics() {
   const state = {
     startedAt: new Date().toISOString(),
@@ -20,6 +26,7 @@ function createWorkerMetrics() {
     markFailedJob() {
       state.failedJobs += 1;
     },
+    /** Returns a copy of current metrics for logging. */
     snapshot() {
       return { ...state };
     },
