@@ -44,7 +44,10 @@ async function executeRun(input = {}) {
       const toolName = isValidTool(structuredOutput.suggestedTool)
         ? structuredOutput.suggestedTool
         : getDefaultToolForPlan();
-      const toolOutcome = await executeTool(toolName, {});
+      const params = structuredOutput.toolParams && typeof structuredOutput.toolParams === "object"
+        ? structuredOutput.toolParams
+        : {};
+      const toolOutcome = await executeTool(toolName, params);
       toolResults.push({
         tool: toolOutcome.toolName,
         success: toolOutcome.success,
@@ -63,6 +66,7 @@ async function executeRun(input = {}) {
       intent: structuredOutput.intent,
       needsTool: structuredOutput.needsTool,
       suggestedTool: structuredOutput.suggestedTool ?? undefined,
+      toolParams: Object.keys(structuredOutput.toolParams || {}).length ? structuredOutput.toolParams : undefined,
       confidence: structuredOutput.confidence,
       action: decision.action,
       decisionReason: decision.reason,

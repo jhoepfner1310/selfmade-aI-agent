@@ -9,12 +9,13 @@ const CONFIDENCE_LEVELS = new Set(["low", "medium", "high"]);
 
 function buildResponseFormatInstructions(toolListForPrompt) {
   const toolPart = toolListForPrompt
-    ? ` Verfuegbare Tools: ${toolListForPrompt}. Wenn needsTool true ist, setze suggestedTool auf den exakten Tool-Namen aus dieser Liste; sonst null.`
+    ? ` Verfuegbare Tools: ${toolListForPrompt}. Wenn needsTool true ist, setze suggestedTool auf den exakten Tool-Namen aus dieser Liste; sonst null. Wenn ein Tool Parameter braucht (z.B. Ort fuer Wetter), setze toolParams als Objekt (z.B. {"city":"Berlin"}); sonst null oder {}.`
     : "";
   return [
     "Gib deine finale Antwort ausschliesslich als gueltiges JSON ohne Markdown-Codeblock zurueck.",
-    'Nutze exakt dieses Schema: {"reply":"string","intent":"answer_question|ask_clarifying_question|perform_task|other","needsTool":boolean,"confidence":"low|medium|high","suggestedTool":"string|null"}',
+    'Nutze exakt dieses Schema: {"reply":"string","intent":"answer_question|ask_clarifying_question|perform_task|other","needsTool":boolean,"confidence":"low|medium|high","suggestedTool":"string|null","toolParams":"object|null"}',
     "reply soll der eigentliche Antworttext fuer den Nutzer sein.",
+    "Wenn needsTool true ist: Formuliere reply als Einleitung, die das Tool-Ergebnis erwartet (z.B. 'Hier ist die aktuelle Uhrzeit:' oder 'Einen Moment.'). Sage NICHT, dass du keinen Zugriff hast – das System fuehrt das Tool aus und haengt das Ergebnis an deine reply an.",
     "Setze intent auf answer_question fuer normale Wissensfragen, ask_clarifying_question bei fehlenden Angaben und perform_task bei konkreten Arbeitsauftraegen.",
     "Setze needsTool auf true, wenn du fuer eine gute Antwort ein externes Tool, aktuelle Daten oder Systemzugriff brauchen wuerdest.",
     `Setze confidence passend zu deiner Sicherheit auf low, medium oder high.${toolPart}`,
@@ -35,13 +36,28 @@ function normalizeStructuredOutput(value) {
       ? value.suggestedTool.trim()
       : null;
 
+  const toolParams = sanitizeToolParams(value?.toolParams);
+
   return {
     reply,
     intent,
     needsTool,
     confidence,
     suggestedTool,
+    toolParams,
   };
+}
+
+function sanitizeToolParams(value) {
+  if (value === null || value === undefined) return {};
+  if (typeof value !== "object" || Array.isArray(value)) return {};
+  const out = {};
+  for (const [k, v] of Object.entries(value)) {
+    if (typeof k === "string" && (typeof v === "string" || typeof v === "number" || typeof v === "boolean")) {
+      out[k] = v;
+    }
+  }
+  return out;
 }
 
 function extractJsonObject(text) {
