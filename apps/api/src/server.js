@@ -1,4 +1,5 @@
-require("dotenv").config();
+const path = require("path");
+require("dotenv").config({ path: path.resolve(__dirname, "../../../.env") });
 const http = require("http");
 const { handleRequest } = require("./app");
 const runRepository = require("./repositories/runRepository");
@@ -15,7 +16,7 @@ runRepository
     const server = http.createServer(handleRequest);
     server.listen(PORT, () => {
       console.log(`API listening on http://localhost:${PORT}`);
-      console.log("Routes: GET /health, POST /runs, GET /runs, GET /runs/:id");
+      console.log("Routes: GET /health, POST /runs, GET /runs, GET /runs/:id, GET /auth/gmail, GET /auth/gmail/callback, GET /auth/gmail/status");
     });
   })
   .catch((error) => {

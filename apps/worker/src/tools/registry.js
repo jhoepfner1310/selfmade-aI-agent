@@ -1,4 +1,5 @@
 const getCurrentTime = require("./getCurrentTime");
+const readEmails = require("./readEmails");
 
 /**
  * Registry of available tools. Each tool must expose:
@@ -9,6 +10,7 @@ const getCurrentTime = require("./getCurrentTime");
 // Map tool name -> tool module. Each tool must have name, description, execute.
 const TOOLS = {
   [getCurrentTime.name]: getCurrentTime,
+  [readEmails.name]: readEmails,
 };
 
 /**

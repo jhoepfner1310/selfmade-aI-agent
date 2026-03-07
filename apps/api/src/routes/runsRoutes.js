@@ -1,5 +1,6 @@
 const { sendJson } = require("../utils/http");
 const runsController = require("../controllers/runsController");
+const authController = require("../controllers/authController");
 
 /**
  * Route dispatcher for the API surface.
@@ -20,6 +21,16 @@ async function handleRunRoutes(req, res) {
   const requestUrl = new URL(req.url, `http://${req.headers.host || "localhost"}`);
   const pathname = requestUrl.pathname;
   const method = req.method;
+
+  if (method === "GET" && pathname === "/auth/gmail") {
+    return authController.startGmailAuth(req, res);
+  }
+  if (method === "GET" && pathname === "/auth/gmail/callback") {
+    return authController.gmailCallback(req, res);
+  }
+  if (method === "GET" && pathname === "/auth/gmail/status") {
+    return authController.gmailStatus(req, res);
+  }
 
   if (method === "GET" && pathname === "/health") {
     return runsController.health(req, res);
