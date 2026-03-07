@@ -20,6 +20,7 @@ const btnNewChat = document.getElementById("btn-new-chat");
 const btnToggleTools = document.getElementById("btn-toggle-tools");
 const gmailStatus = document.getElementById("gmail-status");
 const gmailLink = document.getElementById("gmail-link");
+const conversationList = document.getElementById("conversation-list");
 
 // --- API helpers ---
 
@@ -54,7 +55,45 @@ async function refreshGmailStatus() {
 async function createConversation() {
   const conv = await api("POST", "/conversations");
   conversationId = conv.id;
+  await refreshConversationList();
   return conv;
+}
+
+async function refreshConversationList() {
+  try {
+    const { conversations } = await api("GET", "/conversations");
+    renderConversationList(conversations || []);
+  } catch (e) {
+    console.error("Failed to load conversation list:", e);
+  }
+}
+
+function renderConversationList(conversations) {
+  conversationList.innerHTML = "";
+  conversations.forEach((c) => {
+    const item = document.createElement("div");
+    item.className = "conversation-item" + (c.id === conversationId ? " active" : "");
+    item.dataset.id = c.id;
+    const time = new Date(c.createdAt).toLocaleDateString("de-DE", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    item.innerHTML = `<span>${time}</span>${c.preview ? `<div class="conversation-item-preview">${escapeHtml(c.preview)}</div>` : ""}`;
+    item.addEventListener("click", () => switchConversation(c.id));
+    conversationList.appendChild(item);
+  });
+}
+
+async function switchConversation(id) {
+  if (id === conversationId) return;
+  stopPolling();
+  conversationId = id;
+  pendingRunId = null;
+  toolLog.innerHTML = '<p class="tool-log-empty">Noch keine Tool-Aufrufe.</p>';
+  await refreshConversationList();
+  await loadConversation();
 }
 
 async function loadConversation() {
@@ -246,6 +285,17 @@ btnToggleTools.addEventListener("click", toggleToolLog);
 // --- Init ---
 
 (async () => {
-  await createConversation();
+  try {
+    const { conversations } = await api("GET", "/conversations");
+    if (conversations?.length > 0) {
+      conversationId = conversations[0].id;
+      await loadConversation();
+    } else {
+      await createConversation();
+    }
+    await refreshConversationList();
+  } catch {
+    await createConversation();
+  }
   await refreshGmailStatus();
 })();
