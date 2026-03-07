@@ -26,7 +26,7 @@ class RunValidationError extends Error {
  * 2. Call LLM provider with user text
  * 3. Parse JSON response into structured output (reply, intent, needsTool, suggestedTool, toolParams)
  * 4. Derive agent decision (plan_tool_use, answer_directly, etc.)
- * 5. If plan_tool_use: execute suggested tool (or fallback) with toolParams, append result to reply
+ * 5. If plan_tool_use: execute tool, append result, loop back to step 2 (agent loop, max 5 iterations)
  * 6. Return result object for persistence
  *
  * @param {Object} input - Run input from the queue
@@ -59,61 +59,74 @@ async function executeRun(input = {}) {
         content: typeof m.content === "string" ? m.content : "",
       }))
     : [];
-  const llmResult = await llmProvider.generateText(normalizedText, { conversationHistory });
 
-  // LLM returned a result; parse structured output and optionally run tools.
-  if (llmResult) {
-    // Extract JSON from LLM text and normalize to { reply, intent, needsTool, suggestedTool, toolParams }.
-    const structuredOutput = parseStructuredOutput(llmResult.text);
-    // Decide action: plan_tool_use | answer_directly | request_clarification | perform_task_directly.
-    const decision = deriveAgentDecision(structuredOutput);
+  const MAX_AGENT_LOOP_ITERATIONS = 5;
+  let toolResults = [];
+  let reply = "";
+  let lastStructuredOutput = null;
+  let lastLlmResult = null;
+  let currentPromptText = normalizedText;
 
-    // Start with the LLM's reply; we may append tool output to it when plan_tool_use.
-    let reply = structuredOutput.reply;
-    // Collect tool invocations for the result payload (for logging and API response).
-    let toolResults = [];
+  // Agent loop: LLM → tool → LLM → ... until answer_directly or max iterations
+  for (let iteration = 0; iteration < MAX_AGENT_LOOP_ITERATIONS; iteration++) {
+    const llmResult = await llmProvider.generateText(currentPromptText, { conversationHistory });
+    lastLlmResult = llmResult;
 
-    if (decision.action === "plan_tool_use") {
-      // Use LLM's suggested tool if valid; otherwise fallback to get_current_time.
-      const toolName = isValidTool(structuredOutput.suggestedTool)
-        ? structuredOutput.suggestedTool
-        : getDefaultToolForPlan();
-      // Pass toolParams from LLM (e.g. { city: "Berlin" }) or empty object; sanitized in parseStructuredOutput.
-      const params = structuredOutput.toolParams && typeof structuredOutput.toolParams === "object"
-        ? structuredOutput.toolParams
-        : {};
-      const toolOutcome = await executeTool(toolName, params);
-      // Store for result payload and logging; use error message if tool failed.
-      toolResults.push({
-        tool: toolOutcome.toolName,
-        success: toolOutcome.success,
-        result: toolOutcome.result ?? toolOutcome.error,
-      });
-      // Append tool result or error to the reply shown to the user.
-      if (toolOutcome.success && toolOutcome.result) {
-        reply = `${reply}\n\n(Tool-Ergebnis [${toolOutcome.toolName}]: ${toolOutcome.result})`;
-      } else if (!toolOutcome.success) {
-        reply = `${reply}\n\n(Tool-Fehler: ${toolOutcome.error})`;
-      }
+    if (!llmResult) break;
+
+    lastStructuredOutput = parseStructuredOutput(llmResult.text);
+    const decision = deriveAgentDecision(lastStructuredOutput);
+    reply = lastStructuredOutput.reply;
+
+    if (decision.action !== "plan_tool_use") {
+      break;
     }
 
+    const toolName = isValidTool(lastStructuredOutput.suggestedTool)
+      ? lastStructuredOutput.suggestedTool
+      : getDefaultToolForPlan();
+    const params =
+      lastStructuredOutput.toolParams && typeof lastStructuredOutput.toolParams === "object"
+        ? lastStructuredOutput.toolParams
+        : {};
+    const toolOutcome = await executeTool(toolName, params);
+    toolResults.push({
+      tool: toolOutcome.toolName,
+      success: toolOutcome.success,
+      result: toolOutcome.result ?? toolOutcome.error,
+    });
+
+    if (toolOutcome.success && toolOutcome.result) {
+      reply = `${reply}\n\n(Tool-Ergebnis [${toolOutcome.toolName}]: ${toolOutcome.result})`;
+    } else if (!toolOutcome.success) {
+      reply = `${reply}\n\n(Tool-Fehler: ${toolOutcome.error})`;
+    }
+
+    const toolResultsText = toolResults
+      .map((r, i) => `${i + 1}. ${r.tool}: ${r.result}`)
+      .join("\n");
+    currentPromptText = `${normalizedText}\n\n[Bisherige Tool-Ergebnisse:\n${toolResultsText}\n\nBitte gib deine finale Antwort (needsTool: false) oder fordere ein weiteres Tool an.]`;
+  }
+
+  if (lastLlmResult && lastStructuredOutput) {
+    const lastDecision = deriveAgentDecision(lastStructuredOutput);
     return {
       summary: "Run processed with LLM",
       reply,
-      intent: structuredOutput.intent,
-      needsTool: structuredOutput.needsTool,
-      // Use undefined instead of null so the key is omitted when null (cleaner JSON).
-      suggestedTool: structuredOutput.suggestedTool ?? undefined,
-      // Only include toolParams in result if the object has at least one key.
-      toolParams: Object.keys(structuredOutput.toolParams || {}).length ? structuredOutput.toolParams : undefined,
-      confidence: structuredOutput.confidence,
-      action: decision.action,
-      decisionReason: decision.reason,
-      // Omit toolResults if no tools were run.
+      intent: lastStructuredOutput.intent,
+      needsTool: lastStructuredOutput.needsTool,
+      suggestedTool: lastStructuredOutput.suggestedTool ?? undefined,
+      toolParams:
+        Object.keys(lastStructuredOutput.toolParams || {}).length
+          ? lastStructuredOutput.toolParams
+          : undefined,
+      confidence: lastStructuredOutput.confidence,
+      action: lastDecision.action,
+      decisionReason: lastDecision.reason,
       toolResults: toolResults.length ? toolResults : undefined,
       analysis: {
-        provider: llmResult.provider,
-        model: llmResult.model,
+        provider: lastLlmResult.provider,
+        model: lastLlmResult.model,
         wordCount: words.length,
         charCount: normalizedText.length,
         hasQuestion: normalizedText.includes("?"),
