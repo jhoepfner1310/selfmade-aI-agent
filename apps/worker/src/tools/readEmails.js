@@ -9,6 +9,7 @@ const MAX_LIMIT = 20;
  *
  * @param {Object} [params] - Sanitized tool params from LLM
  * @param {number} [params.limit] - Number of emails to fetch (default 5, max 20)
+ * @param {string} [params.q] - Gmail search query (e.g. from:user@example.com, subject:foo, is:unread)
  * @returns {Promise<{ success: boolean, result: string, toolName: string }>}
  */
 async function execute(params = {}) {
@@ -16,6 +17,7 @@ async function execute(params = {}) {
     Math.max(1, Number(params.limit) || DEFAULT_LIMIT),
     MAX_LIMIT
   );
+  const q = typeof params.q === "string" ? params.q.trim() : "";
 
   const client = await getGmailClient();
   if (!client) {
@@ -28,10 +30,9 @@ async function execute(params = {}) {
 
   try {
     const { gmail } = client;
-    const { data } = await gmail.users.messages.list({
-      userId: "me",
-      maxResults: limit,
-    });
+    const listOptions = { userId: "me", maxResults: limit };
+    if (q) listOptions.q = q;
+    const { data } = await gmail.users.messages.list(listOptions);
 
     const messages = data.messages || [];
     if (messages.length === 0) {
@@ -79,5 +80,6 @@ async function execute(params = {}) {
 module.exports = {
   execute,
   name: "read_emails",
-  description: "Liest die neuesten E-Mails aus dem Gmail-Postfach (OAuth2). Parameter: limit (optional, 1-20, Standard 5).",
+  description:
+    "Liest E-Mails aus dem Gmail-Postfach (OAuth2). Parameter: limit (optional, 1-20, Standard 5); q (optional, Gmail-Suchanfrage, z.B. from:user@example.com, subject:foo, is:unread).",
 };
