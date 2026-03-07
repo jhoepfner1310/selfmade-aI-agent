@@ -31,6 +31,10 @@ const btnToggleTools = document.getElementById("btn-toggle-tools");
 const gmailStatus = document.getElementById("gmail-status");
 const gmailLink = document.getElementById("gmail-link");
 const conversationList = document.getElementById("conversation-list");
+const errorBanner = document.getElementById("error-banner");
+const errorBannerText = document.getElementById("error-banner-text");
+const errorBannerRetry = document.getElementById("error-banner-retry");
+const errorBannerDismiss = document.getElementById("error-banner-dismiss");
 
 // --- API helpers ---
 
@@ -44,9 +48,28 @@ async function api(method, path, body = null) {
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(`${API_BASE}${path}`, opts);
-  const data = res.ok ? await res.json().catch(() => ({})) : null;
-  if (!res.ok) throw new Error(data?.error || `HTTP ${res.status}`);
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    data = {};
+  }
+  if (!res.ok) {
+    const msg = data?.error || (res.status === 0 ? "Netzwerkfehler" : `HTTP ${res.status}`);
+    throw new Error(msg);
+  }
   return data;
+}
+
+function showErrorBanner(msg, onRetry = null) {
+  errorBannerText.textContent = msg;
+  errorBanner.classList.remove("hidden");
+  errorBannerRetry.style.display = onRetry ? "inline-flex" : "none";
+  errorBannerRetry.onclick = onRetry || (() => {});
+}
+
+function hideErrorBanner() {
+  errorBanner.classList.add("hidden");
 }
 
 // --- Gmail status ---
@@ -76,8 +99,10 @@ async function refreshConversationList() {
   try {
     const { conversations } = await api("GET", "/conversations");
     renderConversationList(conversations || []);
+    hideErrorBanner();
   } catch (e) {
     console.error("Failed to load conversation list:", e);
+    showErrorBanner("Konversationsliste konnte nicht geladen werden.", () => refreshConversationList());
   }
 }
 
@@ -105,14 +130,23 @@ async function switchConversation(id) {
   conversationId = id;
   pendingRunId = null;
   toolLog.innerHTML = '<p class="tool-log-empty">Noch keine Tool-Aufrufe.</p>';
-  await refreshConversationList();
-  await loadConversation();
+  try {
+    await refreshConversationList();
+    await loadConversation();
+    hideErrorBanner();
+  } catch (e) {
+    showErrorBanner(e.message || "Konversation konnte nicht geladen werden.", () => switchConversation(id));
+  }
 }
 
 async function loadConversation() {
   if (!conversationId) return;
-  const conv = await api("GET", `/conversations/${conversationId}`);
-  renderMessages(conv.messages || []);
+  try {
+    const conv = await api("GET", `/conversations/${conversationId}`);
+    renderMessages(conv.messages || []);
+  } catch (e) {
+    throw e;
+  }
 }
 
 function renderMessages(messages) {
@@ -189,6 +223,9 @@ function startPolling(runId) {
       }
     } catch (e) {
       console.error("Poll error:", e);
+      stopPolling();
+      removeLoadingMessage();
+      showError(e.message || "Verbindung unterbrochen.");
     }
   }, 800);
 }
@@ -212,10 +249,16 @@ function removeLoadingMessage() {
   document.getElementById("msg-loading")?.remove();
 }
 
-function showError(msg) {
+function showError(msg, onRetry = null) {
   const div = document.createElement("div");
   div.className = "message message-assistant error";
-  div.textContent = "Fehler: " + msg;
+  div.innerHTML = `Fehler: ${escapeHtml(msg)}${onRetry ? ' <button type="button" class="btn btn-ghost btn-sm msg-retry">Erneut versuchen</button>' : ""}`;
+  if (onRetry) {
+    div.querySelector(".msg-retry")?.addEventListener("click", () => {
+      div.remove();
+      onRetry();
+    });
+  }
   chatMessages.appendChild(div);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 }
@@ -237,19 +280,19 @@ async function sendMessage(text) {
   chatMessages.appendChild(userDiv);
   chatMessages.scrollTop = chatMessages.scrollHeight;
 
-  chatInput.value = "";
-  chatInput.style.height = "auto";
   btnSend.disabled = true;
 
   try {
     const { runId } = await api("POST", `/conversations/${conversationId}/messages`, {
       userText: text.trim(),
     });
+    chatInput.value = "";
+    chatInput.style.height = "auto";
     addLoadingMessage();
     startPolling(runId);
   } catch (e) {
     removeLoadingMessage();
-    showError(e.message || "Nachricht konnte nicht gesendet werden.");
+    showError(e.message || "Nachricht konnte nicht gesendet werden.", () => sendMessage(text.trim()));
   } finally {
     btnSend.disabled = false;
   }
@@ -295,6 +338,8 @@ chatInput.addEventListener("input", () => {
 btnNewChat.addEventListener("click", newChat);
 btnToggleTools.addEventListener("click", toggleToolLog);
 
+errorBannerDismiss.addEventListener("click", hideErrorBanner);
+
 // --- Init ---
 
 (async () => {
@@ -307,8 +352,9 @@ btnToggleTools.addEventListener("click", toggleToolLog);
       await createConversation();
     }
     await refreshConversationList();
-  } catch {
-    await createConversation();
+    hideErrorBanner();
+  } catch (e) {
+    showErrorBanner(e.message || "Verbindung fehlgeschlagen.", () => location.reload());
   }
   await refreshGmailStatus();
 })();
