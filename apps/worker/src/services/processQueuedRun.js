@@ -2,6 +2,7 @@ const { sleep } = require("../../../api/src/utils/sleep");
 const { transitionRunStatus } = require("../../../api/src/domain/runStateMachine");
 const { observeStatusTransition } = require("../../../api/src/observers/runObserver");
 const runRepository = require("../../../api/src/repositories/runRepository");
+const conversationRepository = require("../../../api/src/repositories/conversationRepository");
 const { executeRun, RunValidationError } = require("./executeRun");
 const { createProcessQueuedRun } = require("./processQueuedRunCore");
 
@@ -12,6 +13,7 @@ const { createProcessQueuedRun } = require("./processQueuedRunCore");
  * - sleep: delay between state transitions
  * - transitionRunStatus: run state machine (queued -> running -> completed/failed)
  * - runRepository: Postgres persistence
+ * - conversationRepository: conversation messages (multi-turn)
  * - executeRun: LLM + tool invocation logic
  *
  * The worker entrypoint (runWorker.js) subscribes to the BullMQ queue and
@@ -22,6 +24,7 @@ const processQueuedRun = createProcessQueuedRun({
   transitionRunStatus,
   observeStatusTransition,
   runRepository,
+  conversationRepository,
   executeRun,
   RunValidationError,
 });

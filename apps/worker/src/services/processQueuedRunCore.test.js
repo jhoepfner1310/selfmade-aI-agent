@@ -47,11 +47,16 @@ function transitionRunStatusMock(run, nextStatus, extraFields = {}) {
 
 function buildSut({ initialRun, executeRunImpl }) {
   const runRepository = createRunRepositoryMock(initialRun);
+  const conversationRepository = {
+    getMessages: async () => [],
+    addMessage: async () => {},
+  };
   const processQueuedRun = createProcessQueuedRun({
     sleep: async () => {},
     transitionRunStatus: transitionRunStatusMock,
     observeStatusTransition: () => {},
     runRepository,
+    conversationRepository,
     executeRun: executeRunImpl,
     RunValidationError: RunValidationErrorMock,
   });

@@ -3,6 +3,7 @@ require("dotenv").config();
 const IORedis = require("ioredis");
 const { Worker, UnrecoverableError } = require("bullmq");
 const runRepository = require("../../api/src/repositories/runRepository");
+const conversationRepository = require("../../api/src/repositories/conversationRepository");
 const { processQueuedRun } = require("./services/processQueuedRun");
 const { RunValidationError } = require("./services/executeRun");
 const { createWorkerMetrics } = require("./observability/workerMetrics");
@@ -29,8 +30,8 @@ const workerConnection = new IORedis(redisUrl, {
  * for graceful shutdown.
  */
 async function startRunWorker() {
-  // Ensure runs directory exists before processing any jobs
   await runRepository.ensureRunsDir();
+  await conversationRepository.ensureTables();
   const metrics = createWorkerMetrics();
 
   // Logs structured JSON events (worker_ready, job_active, job_completed, job_failed, etc.)

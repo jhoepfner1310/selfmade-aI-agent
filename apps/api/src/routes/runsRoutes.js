@@ -1,6 +1,7 @@
 const { sendJson } = require("../utils/http");
 const runsController = require("../controllers/runsController");
 const authController = require("../controllers/authController");
+const conversationController = require("../controllers/conversationController");
 
 /**
  * Route dispatcher for the API surface.
@@ -30,6 +31,18 @@ async function handleRunRoutes(req, res) {
   }
   if (method === "GET" && pathname === "/auth/gmail/status") {
     return authController.gmailStatus(req, res);
+  }
+
+  if (method === "POST" && pathname === "/conversations") {
+    return conversationController.createConversation(req, res);
+  }
+  if (method === "POST" && pathname.match(/^\/conversations\/[^/]+\/messages$/)) {
+    const conversationId = pathname.split("/")[2];
+    return conversationController.addMessage(req, res, conversationId);
+  }
+  if (method === "GET" && pathname.match(/^\/conversations\/[^/]+$/)) {
+    const conversationId = pathname.slice("/conversations/".length);
+    return conversationController.getConversation(req, res, conversationId);
   }
 
   if (method === "GET" && pathname === "/health") {

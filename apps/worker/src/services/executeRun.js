@@ -31,6 +31,7 @@ class RunValidationError extends Error {
  *
  * @param {Object} input - Run input from the queue
  * @param {string} input.userText - The user's message to process
+ * @param {Array<{role: string, content: string}>} [input.conversationHistory] - Prior messages for multi-turn
  * @returns {Promise<Object>} Execution result with reply, intent, action, toolResults, etc.
  */
 async function executeRun(input = {}) {
@@ -52,7 +53,13 @@ async function executeRun(input = {}) {
   const words = normalizedText.split(/\s+/).filter(Boolean);
   // Resolve provider from env (openai | openrouter); returns first available.
   const llmProvider = getLlmProvider();
-  const llmResult = await llmProvider.generateText(normalizedText);
+  const conversationHistory = Array.isArray(input.conversationHistory)
+    ? input.conversationHistory.map((m) => ({
+        role: m.role === "user" || m.role === "assistant" ? m.role : "user",
+        content: typeof m.content === "string" ? m.content : "",
+      }))
+    : [];
+  const llmResult = await llmProvider.generateText(normalizedText, { conversationHistory });
 
   // LLM returned a result; parse structured output and optionally run tools.
   if (llmResult) {

@@ -39,19 +39,30 @@ function extractTextContent(content) {
 
 /**
  * Generates text using OpenRouter's chat completions API.
- * Embeds system prompt in user message (some models don't support separate system role).
+ * Supports single prompt or full conversation history (multi-turn).
  *
- * @param {string} promptText - User message
+ * @param {string} promptText - Current user message
+ * @param {Object} [options] - Optional settings
+ * @param {Array<{role: string, content: string}>} [options.conversationHistory] - Prior messages (user/assistant)
  * @returns {Promise<{ provider: string, model: string, text: string } | null>}
  */
-async function generateText(promptText) {
+async function generateText(promptText, options = {}) {
   const apiKey = process.env.OPENROUTER_API_KEY;
   if (!apiKey || !OPENROUTER_MODEL) {
     return null;
   }
 
-  // Combine system + user into single user message (some models don't support separate system role)
-  const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
+  let messages;
+  if (options.conversationHistory && options.conversationHistory.length > 0) {
+    messages = [
+      { role: "system", content: SYSTEM_PROMPT },
+      ...options.conversationHistory.map((m) => ({ role: m.role, content: m.content })),
+      { role: "user", content: promptText },
+    ];
+  } else {
+    const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
+    messages = [{ role: "user", content: combinedPrompt }];
+  }
 
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
     method: "POST",
@@ -61,12 +72,7 @@ async function generateText(promptText) {
     },
     body: JSON.stringify({
       model: OPENROUTER_MODEL,
-      messages: [
-        {
-          role: "user",
-          content: combinedPrompt,
-        },
-      ],
+      messages,
     }),
   });
 

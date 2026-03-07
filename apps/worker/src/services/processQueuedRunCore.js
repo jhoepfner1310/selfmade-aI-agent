@@ -8,6 +8,7 @@
  * @param {Function} deps.transitionRunStatus - State machine transition
  * @param {Function} deps.observeStatusTransition - Observer for status changes
  * @param {Object} deps.runRepository - getRunById, writeRun
+ * @param {Object} [deps.conversationRepository] - getMessages, addMessage (for multi-turn)
  * @param {Function} deps.executeRun - Core execution logic
  * @param {typeof RunValidationError} deps.RunValidationError - Validation error class
  * @returns {Function} processQueuedRun(runId, options)
@@ -17,6 +18,7 @@ function createProcessQueuedRun({
   transitionRunStatus,
   observeStatusTransition,
   runRepository,
+  conversationRepository,
   executeRun,
   RunValidationError,
 }) {
@@ -70,7 +72,13 @@ function createProcessQueuedRun({
         throw new Error("Simulated run failure");
       }
 
-      const executionResult = await executeRun(latestRun.input);
+      let runInput = { ...latestRun.input };
+      if (runInput.conversationId && conversationRepository) {
+        const messages = await conversationRepository.getMessages(runInput.conversationId);
+        runInput.conversationHistory = messages.map((m) => ({ role: m.role, content: m.content }));
+      }
+
+      const executionResult = await executeRun(runInput);
       const reply = typeof executionResult?.reply === "string" ? executionResult.reply : "";
       const replyPreview = reply.slice(0, 280);
 
@@ -98,6 +106,17 @@ function createProcessQueuedRun({
         observeStatusTransition,
       );
       await runRepository.writeRun(completedRun);
+
+      if (runInput.conversationId && conversationRepository && executionResult?.reply) {
+        const { randomUUID } = require("crypto");
+        await conversationRepository.addMessage(
+          randomUUID(),
+          runInput.conversationId,
+          "assistant",
+          executionResult.reply,
+          new Date().toISOString()
+        );
+      }
     } catch (error) {
       // Distinguish validation errors (non-retryable) from processing errors (may retry)
       const errorCode = error instanceof RunValidationError ? "VALIDATION_ERROR" : "PROCESSING_ERROR";
