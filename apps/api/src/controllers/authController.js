@@ -50,7 +50,7 @@ async function gmailCallback(req, res) {
         <body>
           <h1>Gmail erfolgreich verbunden</h1>
           <p>Die Tokens wurden gespeichert. Der Agent kann nun deine E-Mails lesen.</p>
-          <p><a href="/runs">Zur Runs-Übersicht</a></p>
+          <p><a href="/">Zum Chat</a></p>
         </body>
       </html>
     `);

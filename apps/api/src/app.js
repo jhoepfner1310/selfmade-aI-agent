@@ -1,19 +1,21 @@
 const { sendJson } = require("./utils/http");
 const { handleRunRoutes } = require("./routes/runsRoutes");
+const { serveStatic } = require("./utils/staticFiles");
 
 /**
  * App-level request entrypoint.
  *
  * Responsibilities:
- * 1) Delegate incoming HTTP requests to the route dispatcher.
- * 2) Provide one centralized error boundary for route/controller/service errors.
- *
- * This keeps error-to-HTTP mapping consistent across all endpoints.
+ * 1) Serve static files for GET requests to /, /index.html, /app.js, /app.css.
+ * 2) Delegate API requests to the route dispatcher.
+ * 3) Provide one centralized error boundary for route/controller/service errors.
  */
 async function handleRequest(req, res) {
   try {
-    // Route dispatcher decides which endpoint handler should process this request.
-    // We await to ensure thrown async errors are caught by the catch block below.
+    if (req.method === "GET") {
+      const served = await serveStatic(req, res);
+      if (served) return;
+    }
     return await handleRunRoutes(req, res);
   } catch (error) {
     // Filesystem ENOENT usually means a run file was requested but does not exist.

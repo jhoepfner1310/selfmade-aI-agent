@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Selfmade Agent – Chat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/app.css">
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <h1 class="logo">Selfmade Agent</h1>
+      <div class="header-actions">
+        <span id="gmail-status" class="status-badge" title="Gmail OAuth Status">—</span>
+        <a id="gmail-link" href="/auth/gmail" class="btn btn-ghost" style="display:none;">Gmail verbinden</a>
+        <button type="button" id="btn-new-chat" class="btn btn-ghost">Neue Unterhaltung</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="chat-section">
+        <div id="chat-messages" class="chat-messages">
+          <div id="welcome" class="welcome">
+            <p>Schreib eine Nachricht, um zu starten.</p>
+            <p class="welcome-hint">Der Agent kann z.B. E-Mails lesen, die Uhrzeit nennen und mehr.</p>
+          </div>
+        </div>
+        <form id="chat-form" class="chat-form">
+          <textarea id="chat-input" class="chat-input" placeholder="Nachricht eingeben…" rows="1"></textarea>
+          <button type="submit" id="btn-send" class="btn btn-primary">Senden</button>
+        </form>
+      </section>
+
+      <aside class="tool-log-section">
+        <div class="tool-log-header">
+          <h2>Tool-Ausführungen</h2>
+          <button type="button" id="btn-toggle-tools" class="btn btn-icon" title="Ein-/Ausblenden">≡</button>
+        </div>
+        <div id="tool-log" class="tool-log">
+          <p class="tool-log-empty">Noch keine Tool-Aufrufe.</p>
+        </div>
+      </aside>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

@@ -52,13 +52,19 @@ async function generateText(promptText, options = {}) {
     return null;
   }
 
+  // Avoid role: "system" – some models (e.g. gemma-3n-e4b-it) reject "Developer instruction".
+  // Prepend system prompt to the first user message instead.
   let messages;
   if (options.conversationHistory && options.conversationHistory.length > 0) {
-    messages = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...options.conversationHistory.map((m) => ({ role: m.role, content: m.content })),
-      { role: "user", content: promptText },
-    ];
+    const history = options.conversationHistory.map((m) => ({ role: m.role, content: m.content }));
+    const firstUserIdx = history.findIndex((m) => m.role === "user");
+    if (firstUserIdx >= 0) {
+      history[firstUserIdx] = {
+        ...history[firstUserIdx],
+        content: `${SYSTEM_PROMPT}\n\n${history[firstUserIdx].content}`,
+      };
+    }
+    messages = [...history, { role: "user", content: promptText }];
   } else {
     const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
     messages = [{ role: "user", content: combinedPrompt }];
