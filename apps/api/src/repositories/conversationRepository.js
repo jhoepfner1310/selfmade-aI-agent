@@ -7,7 +7,8 @@ async function ensureTables() {
   await db.query(`
     CREATE TABLE IF NOT EXISTS conversations (
       id TEXT PRIMARY KEY,
-      created_at TIMESTAMPTZ NOT NULL
+      created_at TIMESTAMPTZ NOT NULL,
+      session_id TEXT
     );
   `);
   await db.query(`
@@ -21,6 +22,14 @@ async function ensureTables() {
   `);
   await db.query(`
     CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);
+  `);
+  try {
+    await db.query(`ALTER TABLE conversations ADD COLUMN session_id TEXT`);
+  } catch (e) {
+    if (e.code !== "42701") throw e;
+  }
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS idx_conversations_session_id ON conversations(session_id);
   `);
 }
 
@@ -38,10 +47,10 @@ function mapRowToMessage(row) {
   };
 }
 
-async function createConversation(id, createdAt) {
+async function createConversation(id, createdAt, sessionId = null) {
   await db.query(
-    `INSERT INTO conversations (id, created_at) VALUES ($1, $2)`,
-    [id, createdAt]
+    `INSERT INTO conversations (id, created_at, session_id) VALUES ($1, $2, $3)`,
+    [id, createdAt, sessionId]
   );
 }
 
@@ -75,16 +84,24 @@ async function getMessages(conversationId) {
 }
 
 /**
- * Lists all conversations, newest first, with latest message preview.
+ * Lists conversations, newest first, with latest message preview.
+ * When sessionId is provided, only returns conversations for that session.
+ * @param {string|null} [sessionId] - Optional session filter
  * @returns {Promise<Array<{ id: string, createdAt: string, preview: string }>>}
  */
-async function listConversations() {
-  const { rows } = await db.query(`
-    SELECT c.id, c.created_at,
+async function listConversations(sessionId = null) {
+  const query = sessionId
+    ? `SELECT c.id, c.created_at,
       (SELECT m.content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS latest_content
     FROM conversations c
-    ORDER BY c.created_at DESC;
-  `);
+    WHERE c.session_id = $1
+    ORDER BY c.created_at DESC`
+    : `SELECT c.id, c.created_at,
+      (SELECT m.content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS latest_content
+    FROM conversations c
+    ORDER BY c.created_at DESC`;
+  const params = sessionId ? [sessionId] : [];
+  const { rows } = await db.query(query, params);
   return rows.map((r) => ({
     id: r.id,
     createdAt: r.created_at.toISOString(),

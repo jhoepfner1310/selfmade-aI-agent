@@ -4,6 +4,16 @@
  */
 
 const API_BASE = "";
+const SESSION_KEY = "agent_session_id";
+
+function getSessionId() {
+  let id = localStorage.getItem(SESSION_KEY);
+  if (!id) {
+    id = crypto.randomUUID();
+    localStorage.setItem(SESSION_KEY, id);
+  }
+  return id;
+}
 
 let conversationId = null;
 let pendingRunId = null;
@@ -25,9 +35,12 @@ const conversationList = document.getElementById("conversation-list");
 // --- API helpers ---
 
 async function api(method, path, body = null) {
-  const opts = { method };
+  const opts = {
+    method,
+    headers: { "X-Session-ID": getSessionId() },
+  };
   if (body) {
-    opts.headers = { "Content-Type": "application/json" };
+    opts.headers["Content-Type"] = "application/json";
     opts.body = JSON.stringify(body);
   }
   const res = await fetch(`${API_BASE}${path}`, opts);

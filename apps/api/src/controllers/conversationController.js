@@ -2,21 +2,29 @@ const { sendJson } = require("../utils/http");
 const conversationService = require("../services/conversationService");
 const { readJsonBody } = require("../utils/readJsonBody");
 
+function getSessionId(req) {
+  return req.headers["x-session-id"]?.trim() || null;
+}
+
 /**
- * Lists all conversations (newest first, with preview).
+ * Lists conversations (newest first, with preview).
  * GET /conversations
+ * Optional header: X-Session-ID for session-scoped list.
  */
 async function listConversations(req, res) {
-  const conversations = await conversationService.listConversations();
+  const sessionId = getSessionId(req);
+  const conversations = await conversationService.listConversations(sessionId);
   return sendJson(res, 200, { conversations });
 }
 
 /**
  * Creates a new conversation.
  * POST /conversations
+ * Optional header: X-Session-ID to scope conversation to session.
  */
 async function createConversation(req, res) {
-  const conversation = await conversationService.createConversation();
+  const sessionId = getSessionId(req);
+  const conversation = await conversationService.createConversation(sessionId);
   return sendJson(res, 201, conversation);
 }
 

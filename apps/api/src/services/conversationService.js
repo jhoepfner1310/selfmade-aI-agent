@@ -7,12 +7,13 @@ const { runsQueue } = require("../queue/runQueue");
 
 /**
  * Creates a new conversation.
+ * @param {string|null} [sessionId] - Optional session for scoping
  * @returns {Promise<{ id: string, createdAt: string }>}
  */
-async function createConversation() {
+async function createConversation(sessionId = null) {
   const id = randomUUID();
   const createdAt = new Date().toISOString();
-  await conversationRepository.createConversation(id, createdAt);
+  await conversationRepository.createConversation(id, createdAt, sessionId);
   return { id, createdAt };
 }
 
@@ -66,11 +67,12 @@ async function getConversation(conversationId) {
 }
 
 /**
- * Lists all conversations with preview, newest first.
+ * Lists conversations with preview, newest first.
+ * @param {string|null} [sessionId] - Optional session filter
  * @returns {Promise<Array<{ id: string, createdAt: string, preview: string }>>}
  */
-async function listConversations() {
-  return conversationRepository.listConversations();
+async function listConversations(sessionId = null) {
+  return conversationRepository.listConversations(sessionId);
 }
 
 module.exports = {
