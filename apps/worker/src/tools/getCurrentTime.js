@@ -6,6 +6,7 @@
  * @returns {Promise<{ success: boolean, result: string, toolName: string }>}
  */
 async function execute() {
+  // Return ISO 8601 string (e.g. "2025-03-06T14:30:00.000Z"); registry expects success, result, toolName
   return {
     success: true,
     result: new Date().toISOString(),

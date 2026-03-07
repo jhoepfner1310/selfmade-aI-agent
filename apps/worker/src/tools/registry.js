@@ -6,6 +6,7 @@ const getCurrentTime = require("./getCurrentTime");
  * - description: string (for LLM prompt)
  * - execute: async (params) => { success, result, toolName }
  */
+// Map tool name -> tool module. Each tool must have name, description, execute.
 const TOOLS = {
   [getCurrentTime.name]: getCurrentTime,
 };
@@ -17,6 +18,7 @@ const TOOLS = {
  * @returns {string} e.g. "get_current_time - Ermittelt die aktuelle Systemzeit."
  */
 function getToolListForPrompt() {
+  // Build "name - description" for each tool; join with semicolons for prompt injection
   return Object.entries(TOOLS)
     .map(([name, tool]) => `${name} - ${tool.description || "Keine Beschreibung"}`)
     .join("; ");
@@ -28,6 +30,7 @@ function getToolListForPrompt() {
  * @returns {string[]}
  */
 function getAvailableToolNames() {
+  // Return all registered tool names for validation and listing
   return Object.keys(TOOLS);
 }
 
@@ -38,6 +41,7 @@ function getAvailableToolNames() {
  * @returns {boolean}
  */
 function isValidTool(toolName) {
+  // Must be non-empty string and exist in registry; used to validate LLM's suggestedTool
   return typeof toolName === "string" && toolName.trim() && toolName in TOOLS;
 }
 
@@ -50,6 +54,7 @@ function isValidTool(toolName) {
  */
 async function executeTool(toolName, params = {}) {
   const tool = TOOLS[toolName];
+  // Tool not found or missing execute function → return error object.
   if (!tool || typeof tool.execute !== "function") {
     return {
       success: false,
@@ -60,6 +65,7 @@ async function executeTool(toolName, params = {}) {
 
   try {
     const outcome = await tool.execute(params);
+    // Treat as success unless outcome explicitly sets success: false (undefined = success).
     return {
       success: outcome?.success !== false,
       result: outcome?.result,
@@ -81,6 +87,7 @@ async function executeTool(toolName, params = {}) {
  * @returns {string} Tool name (e.g. "get_current_time")
  */
 function getDefaultToolForPlan() {
+  // Fallback when LLM suggests invalid/missing tool; get_current_time is safe demo tool
   return getCurrentTime.name;
 }
 

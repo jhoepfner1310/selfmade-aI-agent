@@ -1,4 +1,6 @@
+// OpenRouter API base URL; defaults to official endpoint if not set
 const OPENROUTER_BASE_URL = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+// Model ID (e.g. "anthropic/claude-3-haiku"); must be set for OpenRouter to work
 const OPENROUTER_MODEL = process.env.OPENROUTER_MODEL;
 const { SYSTEM_PROMPT } = require("../systemPrompt");
 
@@ -10,21 +12,22 @@ const { SYSTEM_PROMPT } = require("../systemPrompt");
  * @returns {string} Extracted text
  */
 function extractTextContent(content) {
+  // Simple case: content is already a string
   if (typeof content === "string") {
     return content.trim();
   }
 
+  // OpenRouter can return content as array of parts (e.g. multimodal, tool calls).
   if (Array.isArray(content)) {
     return content
       .map((part) => {
         if (typeof part === "string") {
           return part;
         }
-
+        // Part may be { type: "text", text: "..." } (OpenAI-compatible format)
         if (part?.type === "text" && typeof part.text === "string") {
           return part.text;
         }
-
         return "";
       })
       .join("")
@@ -47,7 +50,7 @@ async function generateText(promptText) {
     return null;
   }
 
-  // Combine system + user into single user message for models without developer instructions.
+  // Combine system + user into single user message (some models don't support separate system role)
   const combinedPrompt = `${SYSTEM_PROMPT}\n\nNutzeranfrage:\n${promptText}`;
 
   const response = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
@@ -73,6 +76,7 @@ async function generateText(promptText) {
   }
 
   const payload = await response.json();
+  // choices[0].message.content can be string or array of parts; extractTextContent normalizes
   const text = extractTextContent(payload?.choices?.[0]?.message?.content);
 
   return {

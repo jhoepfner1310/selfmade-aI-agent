@@ -1,13 +1,10 @@
 const OpenAI = require("openai");
 const { SYSTEM_PROMPT } = require("../systemPrompt");
 
+// Model ID; defaults to gpt-4.1-mini if OPENAI_MODEL not set
 const OPENAI_MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 let openaiClient = null;
 
-/**
- * Lazily creates and returns the OpenAI client.
- * Returns null if OPENAI_API_KEY is not set.
- */
 function getOpenAIClient() {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {

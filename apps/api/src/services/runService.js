@@ -23,6 +23,7 @@ async function enqueueRun(run) {
  * @returns {Promise<Object>} The queued run
  */
 async function createRun(input) {
+  // Build initial run with status "created"; persist before enqueue
   const createdRun = {
     id: randomUUID(),
     status: "created",
@@ -33,6 +34,7 @@ async function createRun(input) {
 
   const queuedRun = await enqueueRun(createdRun);
   const { runsQueue } = require("../queue/runQueue");
+  // Add job to BullMQ; worker will pick up and process via processQueuedRun
   await runsQueue.add(
     "process-run",
     { runId: queuedRun.id },

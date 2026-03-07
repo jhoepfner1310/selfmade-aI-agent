@@ -27,6 +27,7 @@ async function health(req, res) {
  */
 async function createRun(req, res) {
   const input = await readJsonBody(req);
+  // Service creates run, persists, transitions to queued, enqueues job; returns queued run
   const queuedRun = await runService.createRun(input);
   return sendJson(res, 201, queuedRun);
 }

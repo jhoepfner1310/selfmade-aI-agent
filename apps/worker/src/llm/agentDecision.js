@@ -6,6 +6,7 @@
  * @returns {{ action: string, reason: string }} Action and human-readable reason
  */
 function deriveAgentDecision(structuredOutput) {
+  // Highest priority: LLM says it needs a tool → we will run one (plan_tool_use)
   if (structuredOutput?.needsTool === true) {
     return {
       action: "plan_tool_use",
@@ -13,6 +14,7 @@ function deriveAgentDecision(structuredOutput) {
     };
   }
 
+  // Second: LLM wants to ask a clarifying question before answering
   if (structuredOutput?.intent === "ask_clarifying_question") {
     return {
       action: "request_clarification",
@@ -20,6 +22,7 @@ function deriveAgentDecision(structuredOutput) {
     };
   }
 
+  // Third: LLM sees a task it can do directly (e.g. summarize, explain) without tools
   if (structuredOutput?.intent === "perform_task") {
     return {
       action: "perform_task_directly",
@@ -27,6 +30,7 @@ function deriveAgentDecision(structuredOutput) {
     };
   }
 
+  // Default: answer directly (covers answer_question, other, or any fallback)
   return {
     action: "answer_directly",
     reason: "Das Modell kann direkt mit einer normalen Antwort reagieren.",

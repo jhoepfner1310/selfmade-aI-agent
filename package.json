@@ -6,7 +6,7 @@
         "dev": "node apps/api/src/server.js",
         "dev:api": "node apps/api/src/server.js",
         "dev:worker": "node apps/worker/src/runWorker.js",
-        "test": "node --test",
+        "test": "node --test apps/worker/src/services/processQueuedRunCore.test.js apps/worker/src/observability/workerMetrics.test.js",
         "test:agent": "node scripts/test-agent.js"
     },
     "dependencies": {

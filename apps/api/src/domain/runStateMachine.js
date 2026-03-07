@@ -32,6 +32,7 @@ const STATUS_TIMESTAMP_FIELDS = {
  */
 function transitionRunStatus(run, nextStatus, extraFields = {}, observeStatusTransition) {
   const allowedNextStatuses = ALLOWED_STATUS_TRANSITIONS[run.status] || [];
+  // Validate: e.g. queued->running ok, queued->completed invalid
   if (!allowedNextStatuses.includes(nextStatus)) {
     throw new Error(`Invalid status transition: ${run.status} -> ${nextStatus}`);
   }

@@ -37,14 +37,15 @@ function createProcessQueuedRun({
     try {
       let currentRun = await runRepository.getRunById(runId);
 
-      // First attempt: transition queued -> running. Retries may find run already running.
+      // First-time processing: transition queued -> running.
       if (currentRun.status === "queued") {
         try {
           const runningRun = transitionRunStatus(currentRun, "running", {}, observeStatusTransition);
           await runRepository.writeRun(runningRun);
           currentRun = runningRun;
         } catch (error) {
-          // Race condition: another worker/retry may have already transitioned this run.
+          // transitionRunStatus may throw if another process already transitioned (invalid transition).
+          // Race: another worker/retry may have already transitioned; reload to get latest state.
           const latestRun = await runRepository.getRunById(runId);
           if (latestRun.status === "running") {
             currentRun = latestRun;
@@ -55,25 +56,25 @@ function createProcessQueuedRun({
           }
         }
       } else if (currentRun.status === "completed") {
-        // Idempotent safety: a duplicate delivery should not re-process completed runs.
         return;
       } else if (currentRun.status !== "running") {
+        // Invalid: e.g. created, failed, or unknown status; cannot process.
         throw new Error(`Run ${runId} is in invalid status for processing: ${currentRun.status}`);
       }
 
-      // Simulated processing delay (e.g. for rate limiting or UX).
       await sleep(2000);
 
       const latestRun = await runRepository.getRunById(runId);
+      // Test hook: input.simulateFailure triggers a failure for testing retry logic.
       if (latestRun.input?.simulateFailure === true) {
         throw new Error("Simulated run failure");
       }
 
       const executionResult = await executeRun(latestRun.input);
-      // Log result for observability (structured JSON for log aggregation).
       const reply = typeof executionResult?.reply === "string" ? executionResult.reply : "";
       const replyPreview = reply.slice(0, 280);
 
+      // Log execution result for observability (reply preview, intent, tool results)
       console.log(
         JSON.stringify({
           ts: new Date().toISOString(),
@@ -93,19 +94,17 @@ function createProcessQueuedRun({
       const completedRun = transitionRunStatus(
         latestRun,
         "completed",
-        {
-          result: executionResult,
-        },
+        { result: executionResult },
         observeStatusTransition,
       );
       await runRepository.writeRun(completedRun);
     } catch (error) {
+      // Distinguish validation errors (non-retryable) from processing errors (may retry)
       const errorCode = error instanceof RunValidationError ? "VALIDATION_ERROR" : "PROCESSING_ERROR";
       const errorMessage = error?.message || "Unknown processing error";
       const isLastAttempt = attemptsMade + 1 >= maxAttempts;
       const shouldPersistFailure = error instanceof RunValidationError || isLastAttempt;
 
-      // Only persist "failed" when: validation error (no retry) or final retry exhausted.
       if (shouldPersistFailure) {
         try {
           const latestRun = await runRepository.getRunById(runId);
@@ -126,7 +125,6 @@ function createProcessQueuedRun({
         }
       }
 
-      // Re-throw so BullMQ can apply retry policy.
       throw error;
     }
   };
