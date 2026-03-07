@@ -33,6 +33,9 @@ async function handleRunRoutes(req, res) {
     return authController.gmailStatus(req, res);
   }
 
+  if (method === "GET" && pathname === "/conversations") {
+    return conversationController.listConversations(req, res);
+  }
   if (method === "POST" && pathname === "/conversations") {
     return conversationController.createConversation(req, res);
   }

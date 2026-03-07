@@ -65,8 +65,17 @@ async function getConversation(conversationId) {
   return { ...conv, messages };
 }
 
+/**
+ * Lists all conversations with preview, newest first.
+ * @returns {Promise<Array<{ id: string, createdAt: string, preview: string }>>}
+ */
+async function listConversations() {
+  return conversationRepository.listConversations();
+}
+
 module.exports = {
   createConversation,
   addMessage,
   getConversation,
+  listConversations,
 };

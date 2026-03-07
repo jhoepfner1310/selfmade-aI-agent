@@ -3,6 +3,15 @@ const conversationService = require("../services/conversationService");
 const { readJsonBody } = require("../utils/readJsonBody");
 
 /**
+ * Lists all conversations (newest first, with preview).
+ * GET /conversations
+ */
+async function listConversations(req, res) {
+  const conversations = await conversationService.listConversations();
+  return sendJson(res, 200, { conversations });
+}
+
+/**
  * Creates a new conversation.
  * POST /conversations
  */
@@ -56,6 +65,7 @@ async function getConversation(req, res, conversationId) {
 }
 
 module.exports = {
+  listConversations,
   createConversation,
   addMessage,
   getConversation,

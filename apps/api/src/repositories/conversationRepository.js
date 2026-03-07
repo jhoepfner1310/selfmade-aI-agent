@@ -74,10 +74,29 @@ async function getMessages(conversationId) {
   return rows.map(mapRowToMessage);
 }
 
+/**
+ * Lists all conversations, newest first, with latest message preview.
+ * @returns {Promise<Array<{ id: string, createdAt: string, preview: string }>>}
+ */
+async function listConversations() {
+  const { rows } = await db.query(`
+    SELECT c.id, c.created_at,
+      (SELECT m.content FROM messages m WHERE m.conversation_id = c.id ORDER BY m.created_at DESC LIMIT 1) AS latest_content
+    FROM conversations c
+    ORDER BY c.created_at DESC;
+  `);
+  return rows.map((r) => ({
+    id: r.id,
+    createdAt: r.created_at.toISOString(),
+    preview: r.latest_content ? String(r.latest_content).slice(0, 80) : "",
+  }));
+}
+
 module.exports = {
   ensureTables,
   createConversation,
   getConversation,
   addMessage,
   getMessages,
+  listConversations,
 };
