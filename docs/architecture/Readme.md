@@ -29,6 +29,7 @@ The system consists of two applications that run in parallel: the API handles HT
 
 ## Further Documentation
 
+- [Configuration](configuration.md) – Environment variables, API keys, tool prerequisites
 - [Data Flow](data-flow.md) – Request lifecycle from API to Worker
 - [API](api.md) – Endpoints, structure, request format
-- [Worker](worker.md) – Queue consumer, run processing, state machine
+- [Worker](worker.md) – Queue consumer, run processing, state machine, tool calling (web_search, read_webpage)

@@ -17,13 +17,23 @@ flowchart TD
     runWorker[runWorker.js] --> processQueuedRun[processQueuedRun.js]
     processQueuedRun --> processQueuedRunCore[processQueuedRunCore.js]
     processQueuedRunCore --> executeRun[executeRun.js]
-    executeRun --> LLM[LLM Provider]
+    executeRun --> providerFactory[providerFactory.js]
+    executeRun --> registry[tools/registry.js]
+    providerFactory --> openrouter[openrouterProvider]
+    providerFactory --> openai[openaiProvider]
+    openrouter --> toolSchemas[toolSchemas.js]
+    openai --> toolSchemas
+    registry --> webSearch[webSearch.js]
+    registry --> readWebpage[readWebpage.js]
 ```
 
 - **runWorker.js** – BullMQ Worker, job validation, metrics, shutdown handlers
 - **processQueuedRun** – Function returned by factory (`createProcessQueuedRun`); created once with injected deps, called per job
 - **processQueuedRunCore** – Orchestrates run lifecycle (queued → running → completed/failed), calls `executeRun`, handles retries
-- **executeRun** – Agent heart: validates `input.userText`, calls LLM, returns result
+- **executeRun** – Agent heart: validates `input.userText`, builds messages, runs tool-calling loop, returns result
+- **providerFactory.js** – Resolves LLM provider (OpenRouter or OpenAI) from `LLM_PROVIDER` env
+- **tools/registry.js** – Maps tool names (`web_search`, `read_webpage`) to execute functions
+- **toolSchemas.js** – Defines `TOOL_SCHEMAS` in OpenAI format for API requests
 
 ## Queue
 
@@ -47,6 +57,6 @@ stateDiagram-v2
 
 ## LLM & Tools
 
-- **LLM:** OpenRouter or OpenAI (via `LLM_PROVIDER` env). `executeRun` passes `input.userText` to `llmProvider.generateText()`.
-- **Current flow:** Simple prompt → LLM → response. No tool-calling loop.
-- **Tools:** `webSearch`, `readWebpage` exist as modules but are **not wired in**; they are not called from `executeRun`. Tool calling is planned but not yet implemented.
+- **LLM:** OpenRouter or OpenAI (via `LLM_PROVIDER` env). `executeRun` builds a messages array and calls `llmProvider.generateText(messages)`.
+- **Tool-calling flow:** executeRun sends the initial user prompt with `TOOL_SCHEMAS`; when the model returns `tool_calls`, the registry executes the requested tools (`web_search`, `read_webpage`), appends tool results to the conversation, and calls the LLM again. Loop continues until no more `tool_calls` (max 5 iterations). OpenRouter supports this natively; OpenAI returns text only (no tools).
+- **Tools:** `web_search` (Serper API, `SERPER_API_KEY`) and `read_webpage` (Cheerio) are wired via `registry.js` and `toolSchemas.js`. New tools: add to both files + diagram (`registry --> newTool`).

@@ -16,7 +16,7 @@ flowchart TD
     Service --> Queue[runQueue]
 ```
 
-- **server.js** – Bootstrap, HTTP server, `ensureRunsDir`
+- **server.js** – Bootstrap, HTTP server, `ensureRunsTable`
 - **app.js** – Request handler, error mapping (404, 400, 500)
 - **runsRoutes.js** – Route dispatch by method + path
 - **runsController.js** – Parse body, call service, return JSON
@@ -30,6 +30,14 @@ flowchart TD
 | POST | `/runs` | Create run, enqueue job |
 | GET | `/runs` | List all runs |
 | GET | `/runs/:id` | Get run by id |
+| GET | `/runs/:id/stream` | Stream run output (stub, returns 501) |
+| GET | `/auth/gmail` | Gmail OAuth start (stub, returns 501) |
+| GET | `/auth/gmail/callback` | Gmail OAuth callback (stub, returns 501) |
+| GET | `/auth/gmail/status` | Gmail auth status (stub, returns 501) |
+| GET | `/conversations` | List conversations (stub, returns 501) |
+| POST | `/conversations` | Create conversation (stub, returns 501) |
+| POST | `/conversations/:id/messages` | Add message to conversation (stub, returns 501) |
+| GET | `/conversations/:id` | Get conversation by id (stub, returns 501) |
 
 ## Request Format (POST /runs)
 
